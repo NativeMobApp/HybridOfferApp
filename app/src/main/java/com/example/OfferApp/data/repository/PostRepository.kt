@@ -88,7 +88,6 @@ class PostRepository {
 
     suspend fun addCommentToPost(postId: String, comment: Comment): Result<Unit> {
         return try {
-            // The postId is now part of the comment object itself
             postsCollection.document(postId).collection("comments").add(comment).await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -118,7 +117,7 @@ class PostRepository {
         return callbackFlow {
             val listener = firestore.collectionGroup("comments")
                 .whereEqualTo("user.uid", userId)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
+                // .orderBy("timestamp", Query.Direction.DESCENDING) // Temporarily removed for debugging
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
                         close(e)
