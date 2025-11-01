@@ -39,7 +39,8 @@ fun PostDetailScreen(
     mainViewModel: MainViewModel,
     post: Post,
     onBackClicked: () -> Unit,
-    onLogoutClicked: () -> Unit
+    onLogoutClicked: () -> Unit,
+    onProfileClick: () -> Unit // New: action for profile
 ) {
     LaunchedEffect(post.id) {
         mainViewModel.loadComments(post.id)
@@ -48,10 +49,12 @@ fun PostDetailScreen(
     Scaffold(
         topBar = {
             Header(
+                username = mainViewModel.user.username,
                 query = mainViewModel.searchQuery,
                 onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                 onBackClicked = onBackClicked,
-                onSesionClicked = onLogoutClicked
+                onSesionClicked = onLogoutClicked,
+                onProfileClick = onProfileClick
             )
         }
     ) { paddingValues ->
@@ -166,7 +169,7 @@ private fun PostInfoSection(mainViewModel: MainViewModel, post: Post) {
         Text(text = "Longitud: ${post.longitude}", style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}", // Changed to username
+            text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}",
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold
         )
@@ -227,7 +230,7 @@ private fun CommentItem(comment: Comment) {
     val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = comment.user?.username ?: "Anónimo", fontWeight = FontWeight.Bold) // Changed to username
+            Text(text = comment.user?.username ?: "Anónimo", fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(8.dp))
             comment.timestamp?.let {
                 Text(text = sdf.format(it), style = MaterialTheme.typography.bodySmall)

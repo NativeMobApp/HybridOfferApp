@@ -6,20 +6,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.OfferApp.domain.entities.User
+import androidx.navigation.NavController
+import com.example.OfferApp.navigation.Screen
 import com.example.OfferApp.viewmodel.AuthViewModel
 import com.example.OfferApp.viewmodel.AuthState
 
 @Composable
 fun LogInScreen(
     viewModel: AuthViewModel,
-    onSuccess: (User) -> Unit, // Now passes the full User object
-    onRegisterClick: () -> Unit,
-    onForgotClick: () -> Unit
+    navController: NavController
 ) {
     val state by viewModel.state.collectAsState()
     var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    LaunchedEffect(state) {
+        if (state is AuthState.Success) {
+            navController.navigate(Screen.Main.route) {
+                popUpTo(Screen.Login.route) { inclusive = true }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -53,21 +60,21 @@ fun LogInScreen(
             Text("Ingresar")
         }
 
-        TextButton(onClick = onRegisterClick, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = { navController.navigate(Screen.Register.route) }, modifier = Modifier.fillMaxWidth()) {
             Text("Crear cuenta")
         }
 
-        TextButton(onClick = onForgotClick, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = { navController.navigate(Screen.ForgotPassword.route) }, modifier = Modifier.fillMaxWidth()) {
             Text("Olvidé mi contraseña")
         }
 
         Spacer(Modifier.height(8.dp))
 
-        when (val S = state) {
-            is AuthState.Loading -> CircularProgressIndicator()
-            is AuthState.Success -> onSuccess(S.user) // Pass the full User object
-            is AuthState.Error -> Text("Error: ${S.message}")
-            else -> {}
+        if (state is AuthState.Loading) {
+            CircularProgressIndicator()
+        }
+        if (state is AuthState.Error) {
+            Text("Error: ${(state as AuthState.Error).message}")
         }
     }
 }

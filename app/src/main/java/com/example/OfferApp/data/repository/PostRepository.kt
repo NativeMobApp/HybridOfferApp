@@ -88,6 +88,7 @@ class PostRepository {
 
     suspend fun addCommentToPost(postId: String, comment: Comment): Result<Unit> {
         return try {
+            // The postId is now part of the comment object itself
             postsCollection.document(postId).collection("comments").add(comment).await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -98,6 +99,25 @@ class PostRepository {
     fun getCommentsForPost(postId: String): Flow<List<Comment>> {
         return callbackFlow {
             val listener = postsCollection.document(postId).collection("comments")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        close(e)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null) {
+                        val comments = snapshot.toObjects(Comment::class.java)
+                        trySend(comments).isSuccess
+                    }
+                }
+            awaitClose { listener.remove() }
+        }
+    }
+
+    fun getCommentsByUser(userId: String): Flow<List<Comment>> {
+        return callbackFlow {
+            val listener = firestore.collectionGroup("comments")
+                .whereEqualTo("user.uid", userId)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {

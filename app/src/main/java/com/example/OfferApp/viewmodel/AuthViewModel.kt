@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 sealed class AuthState {
     object Idle : AuthState()
     object Loading : AuthState()
-    // Success state now holds the full User object
     data class Success(val user: User) : AuthState()
     data class PasswordResetSuccess(val message: String) : AuthState()
     data class Error(val message: String) : AuthState()
@@ -27,53 +26,58 @@ class AuthViewModel(
     fun register(email: String, password: String, username: String) {
         viewModelScope.launch {
             _state.value = AuthState.Loading
-            val result = repository.registerUser(email, password, username)
-            _state.value = result.fold(
-                onSuccess = { firebaseUser ->
-                    val uid = firebaseUser?.uid ?: return@fold AuthState.Error("Error de registro.")
-                    // After registering, fetch the full user profile from Firestore
-                    val user = repository.getUser(uid)
-                    if (user != null) {
-                        AuthState.Success(user)
-                    } else {
-                        AuthState.Error("No se pudo cargar el perfil del usuario.")
-                    }
-                },
-                onFailure = { AuthState.Error(it.message ?: "Error al registrar") }
-            )
+            repository.registerUser(email, password, username).onSuccess { firebaseUser ->
+                val uid = firebaseUser?.uid
+                if (uid == null) {
+                    _state.value = AuthState.Error("Error de registro: no se pudo obtener el ID de usuario.")
+                    return@launch
+                }
+                // Fetch the full user profile from Firestore
+                val user = repository.getUser(uid)
+                if (user != null) {
+                    _state.value = AuthState.Success(user)
+                } else {
+                    _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
+                }
+            }.onFailure {
+                _state.value = AuthState.Error(it.message ?: "Error al registrar")
+            }
         }
     }
 
     fun login(identifier: String, password: String) {
         viewModelScope.launch {
             _state.value = AuthState.Loading
-            val result = repository.loginUser(identifier, password)
-            _state.value = result.fold(
-                onSuccess = { firebaseUser ->
-                     val uid = firebaseUser?.uid ?: return@fold AuthState.Error("Error de inicio de sesión.")
-                    // After logging in, fetch the full user profile from Firestore
-                    val user = repository.getUser(uid)
-                    if (user != null) {
-                        AuthState.Success(user)
-                    } else {
-                        AuthState.Error("No se pudo cargar el perfil del usuario.")
-                    }
-                },
-                onFailure = { AuthState.Error(it.message ?: "Error al iniciar sesión") }
-            )
+            repository.loginUser(identifier, password).onSuccess { firebaseUser ->
+                val uid = firebaseUser?.uid
+                if (uid == null) {
+                    _state.value = AuthState.Error("Error de inicio de sesión: no se pudo obtener el ID de usuario.")
+                    return@launch
+                }
+                // After logging in, fetch the full user profile from Firestore
+                val user = repository.getUser(uid)
+                if (user != null) {
+                    _state.value = AuthState.Success(user)
+                } else {
+                    _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
+                }
+            }.onFailure {
+                _state.value = AuthState.Error(it.message ?: "Error al iniciar sesión")
+            }
         }
     }
     
     fun resetPassword(email: String) {
         viewModelScope.launch {
             _state.value = AuthState.Loading
-            val result = repository.resetPassword(email)
-            _state.value = result.fold(
-                onSuccess = { AuthState.PasswordResetSuccess("Se envió un mail a $email") },
-                onFailure = { AuthState.Error(it.message ?: "Error al enviar mail") }
-            )
+            repository.resetPassword(email).onSuccess {
+                _state.value = AuthState.PasswordResetSuccess("Se envió un mail a $email")
+            }.onFailure {
+                _state.value = AuthState.Error(it.message ?: "Error al enviar mail")
+            }
         }
     }
+    
     fun logout() {
         repository.logout()
         _state.value = AuthState.Idle

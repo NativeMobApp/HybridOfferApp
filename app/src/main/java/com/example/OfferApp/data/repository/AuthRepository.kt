@@ -1,11 +1,18 @@
 package com.example.OfferApp.data.repository
 
+import android.net.Uri
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.example.OfferApp.domain.entities.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import kotlin.Result
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class AuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -18,18 +25,15 @@ class AuthRepository(
 
     suspend fun registerUser(email: String, password: String, username: String): Result<FirebaseUser?> {
         return try {
-            // First, check if username already exists
             val usernameQuery = usersCollection.whereEqualTo("username", username).get().await()
             if (!usernameQuery.isEmpty) {
                 throw Exception("El nombre de usuario ya está en uso.")
             }
 
-            // 1. Create user in Authentication
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user
                 ?: throw Exception("Error de registro: no se pudo obtener la información del usuario.")
 
-            // 2. Save user info in Firestore
             val user = User(uid = firebaseUser.uid, username = username, email = email)
             usersCollection.document(firebaseUser.uid).set(user).await()
 
@@ -42,7 +46,6 @@ class AuthRepository(
     suspend fun loginUser(identifier: String, password: String): Result<FirebaseUser?> {
         return try {
             var email = identifier
-            // If identifier is not an email, assume it's a username
             if (!identifier.contains("@")) {
                 val query = usersCollection.whereEqualTo("username", identifier).limit(1).get().await()
                 if (query.isEmpty) {
@@ -64,6 +67,42 @@ class AuthRepository(
             usersCollection.document(uid).get().await().toObject(User::class.java)
         } catch (e: Exception) {
             null
+        }
+    }
+    
+    private suspend fun uploadImageToCloudinary(imageUri: Uri): String {
+        return suspendCancellableCoroutine { continuation ->
+            MediaManager.get().upload(imageUri)
+                .callback(object : UploadCallback {
+                    override fun onStart(requestId: String) {}
+                    override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
+
+                    override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                        val imageUrl = resultData["url"].toString()
+                        if (continuation.isActive) {
+                            continuation.resume(imageUrl)
+                        }
+                    }
+
+                    override fun onError(requestId: String, error: ErrorInfo) {
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(Exception(error.description))
+                        }
+                    }
+
+                    override fun onReschedule(requestId: String, error: ErrorInfo) {}
+                })
+                .dispatch()
+        }
+    }
+
+    suspend fun updateUserProfileImage(uid: String, imageUri: Uri): Result<String> {
+        return try {
+            val imageUrl = uploadImageToCloudinary(imageUri)
+            usersCollection.document(uid).update("profileImageUrl", imageUrl).await()
+            Result.success(imageUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

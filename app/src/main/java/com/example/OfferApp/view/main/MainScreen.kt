@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     mainViewModel: MainViewModel = viewModel(),
     onNavigateToCreatePost: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onPostClick: (String) -> Unit,
     onLogoutClicked: () -> Unit,
     onNavigateToMap: () -> Unit,
@@ -94,10 +95,12 @@ fun MainScreen(
         Scaffold(
             topBar = {
                 Header(
+                    username = mainViewModel.user.username,
                     query = mainViewModel.searchQuery,
                     onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                     onSesionClicked = onLogoutClicked,
-                    onMenuClick = { scope.launch { drawerState.open() } } 
+                    onProfileClick = onNavigateToProfile,
+                    onMenuClick = { scope.launch { drawerState.open() } }
                 )
             },
             floatingActionButton = {
@@ -196,7 +199,7 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}", // Changed to username
+                    text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold
                 )

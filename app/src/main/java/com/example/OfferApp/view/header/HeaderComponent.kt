@@ -1,6 +1,5 @@
 package com.example.OfferApp.view.header
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,7 +9,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,13 +21,16 @@ import com.example.OfferApp.R
 @Composable
 fun Header(
     onSesionClicked: () -> Unit,
+    onProfileClick: () -> Unit,
+    username: String,
     modifier: Modifier = Modifier,
     query: String? = null,
     onQueryChange: ((String) -> Unit)? = null,
-    onLogoClicked: (() -> Unit)? = null,
     onBackClicked: (() -> Unit)? = null,
     onMenuClick: (() -> Unit)? = null
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -42,7 +44,6 @@ fun Header(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Decide what to show at the start: Menu, Back Arrow, or Logo
             if (onMenuClick != null) {
                 IconButton(onClick = onMenuClick) {
                     Icon(Icons.Default.Menu, contentDescription = "Menú", tint = Color.White)
@@ -50,21 +51,6 @@ fun Header(
             } else if (onBackClicked != null) {
                 IconButton(onClick = onBackClicked) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
-                }
-            }
-
-            if (onLogoClicked != null) {
-                Row(
-                    modifier = Modifier
-                        .clickable(onClick = onLogoClicked)
-                        .padding(end = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.outline_percent_discount_24),
-                        contentDescription = "Logo de OfferApp",
-                        modifier = Modifier.size(60.dp)
-                    )
                 }
             }
             
@@ -78,12 +64,36 @@ fun Header(
                 Spacer(modifier = Modifier.weight(1f))
             }
 
-            IconButton(onClick = onSesionClicked) {
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = "Perfil / Cerrar Sesión",
-                    tint = Color.White
-                )
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = "Perfil / Cerrar Sesión",
+                        tint = Color.White
+                    )
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Hola, $username") },
+                        enabled = false, 
+                        onClick = {}
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Ver Perfil") },
+                        onClick = {
+                            onProfileClick()
+                            showMenu = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Cerrar Sesión") },
+                        onClick = {
+                            onSesionClicked()
+                            showMenu = false
+                        }
+                    )
+                }
             }
         }
     }
