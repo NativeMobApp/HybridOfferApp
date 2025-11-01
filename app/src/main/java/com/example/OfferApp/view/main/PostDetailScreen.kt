@@ -166,7 +166,7 @@ private fun PostInfoSection(mainViewModel: MainViewModel, post: Post) {
         Text(text = "Longitud: ${post.longitude}", style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Publicado por: ${post.user?.email ?: "Usuario desconocido"}",
+            text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}", // Changed to username
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold
         )
@@ -227,7 +227,7 @@ private fun CommentItem(comment: Comment) {
     val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = comment.user?.email ?: "Anónimo", fontWeight = FontWeight.Bold)
+            Text(text = comment.user?.username ?: "Anónimo", fontWeight = FontWeight.Bold) // Changed to username
             Spacer(modifier = Modifier.width(8.dp))
             comment.timestamp?.let {
                 Text(text = sdf.format(it), style = MaterialTheme.typography.bodySmall)

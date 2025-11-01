@@ -29,12 +29,13 @@ sealed class Screen(val route: String) {
     object Register : Screen("register")
     object ForgotPassword : Screen("forgot_password")
 
-    object Main : Screen("main/{uid}/{email}") { // Route now accepts uid and email
-        fun createRoute(uid: String, email: String) = "main/$uid/$email"
+    // Route now accepts username as well
+    object Main : Screen("main/{uid}/{email}/{username}") { 
+        fun createRoute(user: User) = "main/${user.uid}/${user.email}/${user.username}"
     }
 
     object CreatePost : Screen("create_post")
-    object PostDetail : Screen("post_detail/{postId}") { // The route now expects a String ID
+    object PostDetail : Screen("post_detail/{postId}") {
         fun createRoute(postId: String) = "post_detail/$postId"
     }
     object Map : Screen("map")
@@ -64,8 +65,8 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
         composable(Screen.Login.route) {
             LogInScreen(
                 authViewModel,
-                onSuccess = { uid, email -> // Receives uid and email from the login screen
-                    navController.navigate(Screen.Main.createRoute(uid, email)) {
+                onSuccess = { user -> // The lambda now receives the full User object
+                    navController.navigate(Screen.Main.createRoute(user)) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -78,7 +79,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
         composable(Screen.Register.route) {
             RegisterScreen(
                 viewModel = authViewModel,
-                onRegisterSuccess = { navController.popBackStack() } // Vuelve a Login
+                onRegisterSuccess = { navController.popBackStack() } 
             )
         }
 
@@ -87,18 +88,20 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             route = Screen.Main.route,
             arguments = listOf(
                 navArgument("uid") { type = NavType.StringType },
-                navArgument("email") { type = NavType.StringType }
+                navArgument("email") { type = NavType.StringType },
+                navArgument("username") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val uid = backStackEntry.arguments?.getString("uid") ?: ""
             val email = backStackEntry.arguments?.getString("email") ?: ""
-            val user = User(uid, email)
+            val username = backStackEntry.arguments?.getString("username") ?: ""
+            val user = User(uid, username, email)
             val mainViewModel: MainViewModel = viewModel(factory = MainViewModelFactory(user))
 
             MainScreen(
                 mainViewModel = mainViewModel,
                 onNavigateToCreatePost = { navController.navigate(Screen.CreatePost.route) },
-                onPostClick = { postId -> // The click now provides the String ID
+                onPostClick = { postId ->
                     navController.navigate(Screen.PostDetail.createRoute(postId))
                 },
                 onLogoutClicked = {
@@ -120,7 +123,8 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             }
             val uid = parentEntry.arguments?.getString("uid") ?: ""
             val email = parentEntry.arguments?.getString("email") ?: ""
-            val user = User(uid, email)
+            val username = parentEntry.arguments?.getString("username") ?: ""
+            val user = User(uid, username, email)
             val mainViewModel: MainViewModel =
                 viewModel(factory = MainViewModelFactory(user), viewModelStoreOwner = parentEntry)
 
@@ -133,19 +137,20 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
         // -------- DETALLE DE POST --------
         composable(
             route = Screen.PostDetail.route,
-            arguments = listOf(navArgument("postId") { type = NavType.StringType }) // Argument is now a String
+            arguments = listOf(navArgument("postId") { type = NavType.StringType })
         ) { backStackEntry ->
             val parentEntry = remember(backStackEntry) {
                 navController.getBackStackEntry(Screen.Main.route)
             }
-             val uid = parentEntry.arguments?.getString("uid") ?: ""
+            val uid = parentEntry.arguments?.getString("uid") ?: ""
             val email = parentEntry.arguments?.getString("email") ?: ""
-            val user = User(uid, email)
+            val username = parentEntry.arguments?.getString("username") ?: ""
+            val user = User(uid, username, email)
             val mainViewModel: MainViewModel =
                 viewModel(factory = MainViewModelFactory(user), viewModelStoreOwner = parentEntry)
 
             val postId = backStackEntry.arguments?.getString("postId")
-            val post = postId?.let { mainViewModel.getPostById(it) } // Find the post by its unique ID
+            val post = postId?.let { mainViewModel.getPostById(it) }
 
             if (post != null) {
                 PostDetailScreen(
@@ -177,7 +182,8 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             }
             val uid = parentEntry.arguments?.getString("uid") ?: ""
             val email = parentEntry.arguments?.getString("email") ?: ""
-            val user = User(uid, email)
+            val username = parentEntry.arguments?.getString("username") ?: ""
+            val user = User(uid, username, email)
             val mainViewModel: MainViewModel =
                 viewModel(factory = MainViewModelFactory(user), viewModelStoreOwner = parentEntry)
 

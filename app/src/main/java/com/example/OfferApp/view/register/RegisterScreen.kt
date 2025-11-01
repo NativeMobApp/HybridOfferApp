@@ -16,6 +16,7 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     val state by viewModel.state.collectAsState()
@@ -40,13 +41,19 @@ fun RegisterScreen(
             )
 
             TextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Nombre de usuario") }
+            )
+
+            TextField(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Contraseña") },
                 visualTransformation = PasswordVisualTransformation()
             )
 
-            Button(onClick = { viewModel.register(email, password) }) {
+            Button(onClick = { viewModel.register(email, password, username) }) {
                 Text("Crear cuenta")
             }
 

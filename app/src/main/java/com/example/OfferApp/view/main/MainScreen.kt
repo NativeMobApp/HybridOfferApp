@@ -97,7 +97,7 @@ fun MainScreen(
                     query = mainViewModel.searchQuery,
                     onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                     onSesionClicked = onLogoutClicked,
-                    onMenuClick = { scope.launch { drawerState.open() } } // Connect menu button
+                    onMenuClick = { scope.launch { drawerState.open() } } 
                 )
             },
             floatingActionButton = {
@@ -196,7 +196,7 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Publicado por: ${post.user?.email ?: "Usuario desconocido"}",
+                    text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}", // Changed to username
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold
                 )

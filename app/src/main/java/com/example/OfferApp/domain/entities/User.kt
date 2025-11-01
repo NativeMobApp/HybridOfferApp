@@ -5,6 +5,6 @@ import com.google.firebase.firestore.IgnoreExtraProperties
 @IgnoreExtraProperties
 data class User(
     var uid: String = "",
-    var email: String = "",
-    var name: String = ""
+    var username: String = "",
+    var email: String = ""
 )
