@@ -21,6 +21,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -118,7 +120,22 @@ fun MainScreen(
                 }
             }
         ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues)) {
+            // <-- CAMBIO: Se usa una Columna para apilar las pestañas y la lista
+            Column(modifier = Modifier.padding(paddingValues)) {
+                val tabTitles = listOf("Todos", "Siguiendo")
+
+                // <-- CAMBIO: Se añade la barra de pestañas
+                TabRow(selectedTabIndex = mainViewModel.selectedFeedTab) {
+                    tabTitles.forEachIndexed { index, title ->
+                        Tab(
+                            selected = mainViewModel.selectedFeedTab == index,
+                            onClick = { mainViewModel.onFeedTabSelected(index) },
+                            text = { Text(text = title) }
+                        )
+                    }
+                }
+
+                // <-- CAMBIO: La lista de posts ahora se muestra debajo de las pestañas
                 LazyColumn {
                     items(mainViewModel.posts) { post ->
                         PostItem(mainViewModel = mainViewModel, post = post, onClick = { onPostClick(post.id) })

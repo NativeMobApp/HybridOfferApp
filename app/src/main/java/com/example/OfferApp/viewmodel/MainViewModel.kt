@@ -39,6 +39,10 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var selectedCategory by mutableStateOf("Todos")
         private set
 
+    // <-- CAMBIO: Estado para la pestaña seleccionada (0 para "Todos", 1 para "Siguiendo")
+    var selectedFeedTab by mutableStateOf(0)
+        private set
+
     private val _comments = MutableStateFlow<List<Comment>>(emptyList())
     val comments = _comments.asStateFlow()
 
@@ -76,6 +80,12 @@ class MainViewModel(initialUser: User) : ViewModel() {
         }
     }
 
+    // <-- CAMBIO: Nueva función para cambiar la pestaña del feed
+    fun onFeedTabSelected(tabIndex: Int) {
+        selectedFeedTab = tabIndex
+        applyFilters() // Re-aplicar filtros cada vez que se cambia la pestaña
+    }
+
     fun loadUserProfile(userId: String) {
         if (userId.isBlank()) {
             Log.w("MainViewModel", "loadUserProfile called with blank userId")
@@ -110,9 +120,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     fun getCommentsByUser(userId: String): Flow<List<Comment>> {
         return postRepository.getCommentsByUser(userId).catch { e ->
             val errorMessage = e.message ?: "Unknown error"
-            // This is the specific error Firebase throws when an index is missing.
             if (errorMessage.contains("FAILED_PRECONDITION") && errorMessage.contains("requires an index")) {
-                // The error message contains the direct URL to create the index. We extract it and log it clearly.
                 val firestoreIndexUrl = errorMessage.substringAfter("https://console.firebase.google.com")
                 val fullUrl = "https://console.firebase.google.com$firestoreIndexUrl".replace("\\n", "")
                 Log.e("MainViewModel",
@@ -126,13 +134,14 @@ class MainViewModel(initialUser: User) : ViewModel() {
             } else {
                 Log.e("MainViewModel", "Error getting comments for user $userId", e)
             }
-            emitAll(MutableStateFlow(emptyList())) // Still emit an empty list to prevent the app from crashing.
+            emitAll(MutableStateFlow(emptyList()))
         }
     }
 
     suspend fun refreshCurrentUser() {
         try {
             authRepository.getUser(user.uid)?.let { user = it }
+            applyFilters() // <-- CAMBIO: Refrescar posts al actualizar el usuario (por si se sigue a alguien nuevo)
         } catch (e: Exception) {
             Log.e("MainViewModel", "Failed to refresh current user", e)
         }
@@ -229,13 +238,24 @@ class MainViewModel(initialUser: User) : ViewModel() {
         applyFilters()
     }
 
+    // <-- CAMBIO: `applyFilters` ahora tiene en cuenta la pestaña seleccionada
     private fun applyFilters() {
-        val filteredByCategory = if (selectedCategory == "Todos") {
-            originalPosts
+        // 1. Determinar la lista base de posts según la pestaña seleccionada
+        val basePosts = if (selectedFeedTab == 0) {
+            originalPosts // Pestaña "Todos"
         } else {
-            originalPosts.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+            // Pestaña "Siguiendo": filtrar posts cuyo autor esté en mi lista de `following`
+            originalPosts.filter { post -> user.following.contains(post.user?.uid) }
         }
 
+        // 2. Filtrar por categoría
+        val filteredByCategory = if (selectedCategory == "Todos") {
+            basePosts
+        } else {
+            basePosts.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+        }
+
+        // 3. Filtrar por búsqueda de texto
         posts = if (searchQuery.isBlank()) {
             filteredByCategory
         } else {
