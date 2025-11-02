@@ -7,6 +7,7 @@ import com.cloudinary.android.callback.UploadCallback
 import com.example.OfferApp.domain.entities.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
@@ -54,14 +55,14 @@ class AuthRepository(
                 val user = query.documents.first().toObject(User::class.java)
                 email = user?.email ?: throw Exception("Error al obtener el email del usuario.")
             }
-            
+
             val result = auth.signInWithEmailAndPassword(email, password).await()
             Result.success(result.user)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
+
     suspend fun getUser(uid: String): User? {
         return try {
             usersCollection.document(uid).get().await().toObject(User::class.java)
@@ -69,7 +70,19 @@ class AuthRepository(
             null
         }
     }
-    
+
+    suspend fun getUsers(userIds: List<String>): List<User> {
+        if (userIds.isEmpty()) {
+            return emptyList()
+        }
+        return try {
+            val querySnapshot = usersCollection.whereIn("uid", userIds).get().await()
+            querySnapshot.toObjects(User::class.java)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     private suspend fun uploadImageToCloudinary(imageUri: Uri): String {
         return suspendCancellableCoroutine { continuation ->
             MediaManager.get().upload(imageUri)
@@ -116,4 +129,38 @@ class AuthRepository(
     }
 
     fun logout() = auth.signOut()
+
+    suspend fun followUser(followerId: String, followingId: String): Result<Unit> {
+        return try {
+            val followerRef = usersCollection.document(followerId)
+            val followingRef = usersCollection.document(followingId)
+
+            firestore.runTransaction { transaction ->
+                transaction.update(followerRef, "following", FieldValue.arrayUnion(followingId))
+                transaction.update(followingRef, "followers", FieldValue.arrayUnion(followerId))
+                null
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unfollowUser(followerId: String, followingId: String): Result<Unit> {
+        return try {
+            val followerRef = usersCollection.document(followerId)
+            val followingRef = usersCollection.document(followingId)
+
+            firestore.runTransaction { transaction ->
+                transaction.update(followerRef, "following", FieldValue.arrayRemove(followingId))
+                transaction.update(followingRef, "followers", FieldValue.arrayRemove(followerId))
+                null
+            }.await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

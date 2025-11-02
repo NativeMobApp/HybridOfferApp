@@ -14,6 +14,8 @@ sealed class AuthState {
     data class Success(val user: User) : AuthState()
     data class PasswordResetSuccess(val message: String) : AuthState()
     data class Error(val message: String) : AuthState()
+    data class FollowSuccess(val message: String) : AuthState()
+    data class UnfollowSuccess(val message: String) : AuthState()
 }
 
 class AuthViewModel(
@@ -66,7 +68,7 @@ class AuthViewModel(
             }
         }
     }
-    
+
     fun resetPassword(email: String) {
         viewModelScope.launch {
             _state.value = AuthState.Loading
@@ -77,9 +79,31 @@ class AuthViewModel(
             }
         }
     }
-    
+
     fun logout() {
         repository.logout()
         _state.value = AuthState.Idle
+    }
+
+    fun followUser(followerId: String, followingId: String) {
+        viewModelScope.launch {
+            _state.value = AuthState.Loading
+            repository.followUser(followerId, followingId).onSuccess {
+                _state.value = AuthState.FollowSuccess("Ahora sigues a este usuario.")
+            }.onFailure {
+                _state.value = AuthState.Error(it.message ?: "Error al seguir al usuario.")
+            }
+        }
+    }
+
+    fun unfollowUser(followerId: String, followingId: String) {
+        viewModelScope.launch {
+            _state.value = AuthState.Loading
+            repository.unfollowUser(followerId, followingId).onSuccess {
+                _state.value = AuthState.UnfollowSuccess("Has dejado de seguir a este usuario.")
+            }.onFailure {
+                _state.value = AuthState.Error(it.message ?: "Error al dejar de seguir al usuario.")
+            }
+        }
     }
 }

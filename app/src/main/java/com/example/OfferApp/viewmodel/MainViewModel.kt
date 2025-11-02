@@ -13,9 +13,12 @@ import com.example.OfferApp.data.repository.PostRepository
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.Post
 import com.example.OfferApp.domain.entities.User
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.launch
 
 class MainViewModel(initialUser: User) : ViewModel() {
@@ -33,11 +36,22 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var searchQuery by mutableStateOf("")
         private set
 
+    var selectedCategory by mutableStateOf("Todos")
+        private set
+
     private val _comments = MutableStateFlow<List<Comment>>(emptyList())
     val comments = _comments.asStateFlow()
 
+    private val _profileUser = MutableStateFlow<User?>(null)
+    val profileUser = _profileUser.asStateFlow()
+
+    private val _profileUserComments = MutableStateFlow<List<Comment>>(emptyList())
+    val profileUserComments = _profileUserComments.asStateFlow()
+
     private val _myComments = MutableStateFlow<List<Comment>>(emptyList())
     val myComments = _myComments.asStateFlow()
+
+    private var commentsJob: Job? = null
 
     val myPosts: List<Post> by derivedStateOf {
         originalPosts.filter { it.user?.uid == this@MainViewModel.user.uid }
@@ -47,7 +61,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
         viewModelScope.launch {
             postRepository.getPosts().collect { postList ->
                 originalPosts = postList
-                onSearchQueryChange(searchQuery)
+                applyFilters()
             }
         }
         viewModelScope.launch {
@@ -56,24 +70,112 @@ class MainViewModel(initialUser: User) : ViewModel() {
             }
         }
         viewModelScope.launch {
-            postRepository.getCommentsByUser(initialUser.uid)
-                .catch { e ->
-                    // This will prevent the crash and log the error.
-                    // The error message from Firestore will contain a link to create the index.
-                    Log.e("MainViewModel", "Error fetching user comments: ${e.message}")
-                }
-                .collect {
-                _myComments.value = it
+            getCommentsByUser(initialUser.uid).collect { comments ->
+                _myComments.value = comments
             }
         }
+    }
+
+    fun loadUserProfile(userId: String) {
+        if (userId.isBlank()) {
+            Log.w("MainViewModel", "loadUserProfile called with blank userId")
+            return
+        }
+
+        commentsJob?.cancel()
+        commentsJob = viewModelScope.launch {
+            try {
+                _profileUser.value = null
+                _profileUserComments.value = emptyList()
+
+                val profileToLoad = if (userId == user.uid) user else authRepository.getUser(userId)
+                _profileUser.value = profileToLoad
+
+                if (profileToLoad != null && userId != user.uid) {
+                    getCommentsByUser(userId).collect { comments ->
+                        _profileUserComments.value = comments
+                    }
+                } else if (profileToLoad == null) {
+                    Log.w("MainViewModel", "User profile for $userId not found. No comments to load.")
+                }
+
+            } catch (e: Throwable) {
+                Log.e("MainViewModel", "A critical error occurred in loadUserProfile for userId: $userId", e)
+                _profileUser.value = null
+                _profileUserComments.value = emptyList()
+            }
+        }
+    }
+
+    fun getCommentsByUser(userId: String): Flow<List<Comment>> {
+        return postRepository.getCommentsByUser(userId).catch { e ->
+            val errorMessage = e.message ?: "Unknown error"
+            // This is the specific error Firebase throws when an index is missing.
+            if (errorMessage.contains("FAILED_PRECONDITION") && errorMessage.contains("requires an index")) {
+                // The error message contains the direct URL to create the index. We extract it and log it clearly.
+                val firestoreIndexUrl = errorMessage.substringAfter("https://console.firebase.google.com")
+                val fullUrl = "https://console.firebase.google.com$firestoreIndexUrl".replace("\\n", "")
+                Log.e("MainViewModel",
+                    "\n*************************************************************************************************\n" +
+                            "** FIRESTORE INDEX REQUIRED **\n" +
+                            "** Your query requires a custom index. Please create it in your Firebase console. **\n" +
+                            "** Click this link to create it automatically: \n" +
+                            "** $fullUrl\n" +
+                            "*************************************************************************************************\n"
+                )
+            } else {
+                Log.e("MainViewModel", "Error getting comments for user $userId", e)
+            }
+            emitAll(MutableStateFlow(emptyList())) // Still emit an empty list to prevent the app from crashing.
+        }
+    }
+
+    suspend fun refreshCurrentUser() {
+        try {
+            authRepository.getUser(user.uid)?.let { user = it }
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Failed to refresh current user", e)
+        }
+    }
+
+    suspend fun followUser(followedUserId: String) {
+        if (authRepository.followUser(user.uid, followedUserId).isSuccess) {
+            refreshCurrentUser()
+            try {
+                _profileUser.value = authRepository.getUser(followedUserId)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to refresh profile user after follow", e)
+            }
+        }
+    }
+
+    suspend fun unfollowUser(followedUserId: String) {
+        if (authRepository.unfollowUser(user.uid, followedUserId).isSuccess) {
+            refreshCurrentUser()
+            try {
+                _profileUser.value = authRepository.getUser(followedUserId)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to refresh profile user after unfollow", e)
+            }
+        }
+    }
+
+    suspend fun getUser(userId: String): User? {
+        return authRepository.getUser(userId)
+    }
+
+    suspend fun getUsers(userIds: List<String>): List<User> {
+        return authRepository.getUsers(userIds)
+    }
+
+    fun getPostsByUser(userId: String): List<Post> {
+        return originalPosts.filter { it.user?.uid == userId }
     }
 
     fun updateProfileImage(imageUri: Uri) {
         viewModelScope.launch {
             authRepository.updateUserProfileImage(this@MainViewModel.user.uid, imageUri).onSuccess {
-                authRepository.getUser(this@MainViewModel.user.uid)?.let { updatedUser ->
-                    this@MainViewModel.user = updatedUser
-                }
+                refreshCurrentUser()
             }
         }
     }
@@ -88,7 +190,12 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun addComment(postId: String, text: String) {
         viewModelScope.launch {
-            val comment = Comment(postId = postId, user = this@MainViewModel.user, text = text)
+            val comment = Comment(
+                postId = postId,
+                userId = this@MainViewModel.user.uid,
+                user = this@MainViewModel.user,
+                text = text
+            )
             postRepository.addCommentToPost(postId, comment)
         }
     }
@@ -114,21 +221,28 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun onSearchQueryChange(newQuery: String) {
         searchQuery = newQuery
-        posts = if (newQuery.isBlank()) {
-            originalPosts
-        } else {
-            originalPosts.filter {
-                it.description.contains(newQuery, ignoreCase = true) ||
-                it.location.contains(newQuery, ignoreCase = true)
-            }
-        }
+        applyFilters()
     }
 
     fun filterByCategory(category: String) {
-        posts = if (category == "Todos") {
+        selectedCategory = category
+        applyFilters()
+    }
+
+    private fun applyFilters() {
+        val filteredByCategory = if (selectedCategory == "Todos") {
             originalPosts
         } else {
-            originalPosts.filter { it.category.equals(category, ignoreCase = true) }
+            originalPosts.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+        }
+
+        posts = if (searchQuery.isBlank()) {
+            filteredByCategory
+        } else {
+            filteredByCategory.filter {
+                it.description.contains(searchQuery, ignoreCase = true) ||
+                        it.location.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 

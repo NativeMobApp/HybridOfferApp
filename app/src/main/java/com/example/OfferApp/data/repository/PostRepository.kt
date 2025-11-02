@@ -116,8 +116,8 @@ class PostRepository {
     fun getCommentsByUser(userId: String): Flow<List<Comment>> {
         return callbackFlow {
             val listener = firestore.collectionGroup("comments")
-                .whereEqualTo("user.uid", userId)
-                // .orderBy("timestamp", Query.Direction.DESCENDING) // Temporarily removed for debugging
+                .whereEqualTo("userId", userId) // Querying by the new simple field
+                .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
                         close(e)

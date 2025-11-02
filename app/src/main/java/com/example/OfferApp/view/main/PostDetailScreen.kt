@@ -1,6 +1,7 @@
 package com.example.OfferApp.view.main
 
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,7 +41,7 @@ fun PostDetailScreen(
     post: Post,
     onBackClicked: () -> Unit,
     onLogoutClicked: () -> Unit,
-    onProfileClick: () -> Unit // New: action for profile
+    onProfileClick: (String) -> Unit // Modified: Now accepts a user ID
 ) {
     LaunchedEffect(post.id) {
         mainViewModel.loadComments(post.id)
@@ -54,14 +55,15 @@ fun PostDetailScreen(
                 onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                 onBackClicked = onBackClicked,
                 onSesionClicked = onLogoutClicked,
-                onProfileClick = onProfileClick
+                onProfileClick = { onProfileClick(mainViewModel.user.uid) } // Navigate to current user's profile
             )
         }
     ) { paddingValues ->
         PostDetailContent(
             mainViewModel = mainViewModel,
             post = post,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(paddingValues),
+            onProfileClick = onProfileClick // Pass the navigation action
         )
     }
 }
@@ -70,7 +72,8 @@ fun PostDetailScreen(
 fun PostDetailContent(
     mainViewModel: MainViewModel,
     post: Post,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onProfileClick: (String) -> Unit
 ) {
     val comments by mainViewModel.comments.collectAsState()
     var newCommentText by remember { mutableStateOf("") }
@@ -81,7 +84,7 @@ fun PostDetailContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        PostInfoSection(mainViewModel, post)
+        PostInfoSection(mainViewModel, post, onProfileClick)
 
         Divider(modifier = Modifier.padding(top = 16.dp))
         Text(
@@ -99,7 +102,7 @@ fun PostDetailContent(
                 )
             } else {
                 comments.forEach { comment ->
-                    CommentItem(comment)
+                    CommentItem(comment, onProfileClick)
                 }
             }
         }
@@ -122,7 +125,11 @@ fun PostDetailContent(
 }
 
 @Composable
-private fun PostInfoSection(mainViewModel: MainViewModel, post: Post) {
+private fun PostInfoSection(
+    mainViewModel: MainViewModel,
+    post: Post,
+    onProfileClick: (String) -> Unit
+) {
     val context = LocalContext.current
     val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
     val currentUserIsAuthor = mainViewModel.user.uid == post.user?.uid
@@ -168,11 +175,23 @@ private fun PostInfoSection(mainViewModel: MainViewModel, post: Post) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(text = "Longitud: ${post.longitude}", style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}",
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold
-        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable { post.user?.uid?.let { onProfileClick(it) } }
+        ) {
+            Text(
+                text = "Publicado por: ",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = post.user?.username ?: "Usuario desconocido",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
         post.timestamp?.let {
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "El: ${sdf.format(it)}", style = MaterialTheme.typography.bodySmall)
@@ -226,11 +245,16 @@ private fun PostInfoSection(mainViewModel: MainViewModel, post: Post) {
 }
 
 @Composable
-private fun CommentItem(comment: Comment) {
+private fun CommentItem(comment: Comment, onProfileClick: (String) -> Unit) {
     val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = comment.user?.username ?: "Anónimo", fontWeight = FontWeight.Bold)
+            Text(
+                text = comment.user?.username ?: "Anónimo",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { comment.user?.uid?.let { onProfileClick(it) } }
+            )
             Spacer(modifier = Modifier.width(8.dp))
             comment.timestamp?.let {
                 Text(text = sdf.format(it), style = MaterialTheme.typography.bodySmall)

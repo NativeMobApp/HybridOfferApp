@@ -22,7 +22,6 @@ import com.example.OfferApp.viewmodel.AuthViewModel
 import com.example.OfferApp.viewmodel.AuthState
 import com.example.OfferApp.viewmodel.MainViewModel
 
-
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Register : Screen("register")
@@ -33,7 +32,10 @@ sealed class Screen(val route: String) {
         fun createRoute(postId: String) = "post_detail/$postId"
     }
     object Map : Screen("map")
-    object Profile : Screen("profile")
+    object Profile : Screen("profile/{userId}") {
+        fun createRoute(userId: String) = "profile/$userId"
+    }
+    object MyProfile : Screen("my-profile") // For the current user's profile
 }
 
 class MainViewModelFactory(private val user: User) : ViewModelProvider.Factory {
@@ -57,7 +59,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
         composable(Screen.Register.route) {
             RegisterScreen(authViewModel) { navController.popBackStack() }
         }
-        
+
         composable(Screen.ForgotPassword.route) {
             ForgotPasswordScreen(authViewModel) { navController.popBackStack() }
         }
@@ -71,7 +73,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
                 MainScreen(
                     mainViewModel = mainViewModel,
                     onNavigateToCreatePost = { navController.navigate(Screen.CreatePost.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
+                    onNavigateToProfile = { navController.navigate(Screen.MyProfile.route) }, // Navigate to current user's profile
                     onPostClick = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) },
                     onLogoutClicked = {
                         authViewModel.logout()
@@ -88,27 +90,51 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
                     }
                 }
             }
-
         }
 
-        // All subsequent screens share the MainViewModel from the "main" route
-        val mainViewModelOwner: @Composable () -> MainViewModel = { 
+        val mainViewModelOwner: @Composable () -> MainViewModel = {
             val parentEntry = remember { navController.getBackStackEntry(Screen.Main.route) }
             viewModel(viewModelStoreOwner = parentEntry)
         }
 
-        composable(Screen.Profile.route) {
+        composable(Screen.MyProfile.route) {
+            val mainViewModel = mainViewModelOwner()
             ProfileScreen(
-                mainViewModel = mainViewModelOwner(),
+                mainViewModel = mainViewModel,
+                userId = mainViewModel.user.uid, // Pass the current user's ID
                 onBackClicked = { navController.popBackStack() },
                 onLogoutClicked = {
-                     authViewModel.logout()
+                    authViewModel.logout()
                     navController.navigate(Screen.Login.route) {
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 },
-                onPostClick = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) }
+                onPostClick = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) },
+                onProfileClick = { userId -> navController.navigate(Screen.Profile.createRoute(userId)) }
             )
+        }
+
+        composable(
+            route = Screen.Profile.route,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val mainViewModel = mainViewModelOwner()
+            val userId = backStackEntry.arguments?.getString("userId")
+            if (userId != null) {
+                ProfileScreen(
+                    mainViewModel = mainViewModel,
+                    userId = userId,
+                    onBackClicked = { navController.popBackStack() },
+                    onLogoutClicked = {
+                        authViewModel.logout()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    },
+                    onPostClick = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) },
+                    onProfileClick = { otherUserId -> navController.navigate(Screen.Profile.createRoute(otherUserId)) }
+                )
+            }
         }
 
         composable(Screen.CreatePost.route) {
@@ -134,17 +160,17 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
                     onLogoutClicked = {
                         authViewModel.logout()
                         navController.navigate(Screen.Login.route) {
-                             popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
                         }
                     },
-                    onProfileClick = { navController.navigate(Screen.Profile.route) }
+                    onProfileClick = { userId -> navController.navigate(Screen.Profile.createRoute(userId)) }
                 )
             } else {
                 navController.popBackStack()
             }
         }
 
-        composable(Screen.Map.route) { 
+        composable(Screen.Map.route) {
             MapScreen(
                 mainViewModel = mainViewModelOwner(),
                 onBackClicked = { navController.popBackStack() }
