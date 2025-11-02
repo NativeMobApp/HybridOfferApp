@@ -1,10 +1,15 @@
 package com.example.OfferApp.view.main
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -30,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,7 +47,7 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     mainViewModel: MainViewModel,
     onNavigateToCreatePost: () -> Unit,
-    onNavigateToProfile: () -> Unit,
+    onNavigateToProfile: (String) -> Unit,
     onPostClick: (String) -> Unit,
     onLogoutClicked: () -> Unit,
     onNavigateToMap: () -> Unit
@@ -53,6 +59,8 @@ fun MainScreen(
         "Animales", "Electrodomésticos", "Servicios", "Educación",
         "Juguetes", "Vehículos", "Otros"
     )
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -73,9 +81,7 @@ fun MainScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-
                     Divider(color = Color.LightGray)
-
                     categories.forEach { category ->
                         Text(
                             text = category,
@@ -91,7 +97,8 @@ fun MainScreen(
                     }
                 }
             }
-        }
+        },
+        gesturesEnabled = !(isLandscape && mainViewModel.selectedPost != null)
     ) {
         Scaffold(
             topBar = {
@@ -99,7 +106,7 @@ fun MainScreen(
                     username = mainViewModel.user.username,
                     query = mainViewModel.searchQuery,
                     onQueryChange = { mainViewModel.onSearchQueryChange(it) },
-                    onProfileClick = onNavigateToProfile,
+                    onProfileClick = { onNavigateToProfile(mainViewModel.user.uid) },
                     onSesionClicked = onLogoutClicked,
                     onMenuClick = { scope.launch { drawerState.open() } }
                 )
@@ -120,11 +127,8 @@ fun MainScreen(
                 }
             }
         ) { paddingValues ->
-            // <-- CAMBIO: Se usa una Columna para apilar las pestañas y la lista
             Column(modifier = Modifier.padding(paddingValues)) {
                 val tabTitles = listOf("Todos", "Siguiendo")
-
-                // <-- CAMBIO: Se añade la barra de pestañas
                 TabRow(selectedTabIndex = mainViewModel.selectedFeedTab) {
                     tabTitles.forEachIndexed { index, title ->
                         Tab(
@@ -135,12 +139,66 @@ fun MainScreen(
                     }
                 }
 
-                // <-- CAMBIO: La lista de posts ahora se muestra debajo de las pestañas
-                LazyColumn {
-                    items(mainViewModel.posts) { post ->
-                        PostItem(mainViewModel = mainViewModel, post = post, onClick = { onPostClick(post.id) })
-                    }
+                if (isLandscape) {
+                    LandscapeLayout(mainViewModel, onNavigateToProfile)
+                } else {
+                    PortraitLayout(mainViewModel, onPostClick)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun PortraitLayout(mainViewModel: MainViewModel, onPostClick: (String) -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(mainViewModel.posts) { post ->
+            PostItem(mainViewModel = mainViewModel, post = post, onClick = { onPostClick(post.id) })
+        }
+    }
+}
+
+@Composable
+fun LandscapeLayout(mainViewModel: MainViewModel, onProfileClick: (String) -> Unit) {
+    Row(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxHeight()
+                .weight(0.4f)
+        ) {
+            items(mainViewModel.posts) { post ->
+                // <-- CAMBIO: Se envuelve el PostItem en un Box
+                val modifier = if (mainViewModel.selectedPostId == post.id) {
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
+                } else {
+                    Modifier
+                }
+                Box(modifier = modifier) {
+                    PostItem(
+                        mainViewModel = mainViewModel,
+                        post = post,
+                        // Al hacer clic, solo se selecciona, no se navega
+                        onClick = { mainViewModel.selectPost(post.id) }
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .weight(0.6f),
+            contentAlignment = Alignment.Center
+        ) {
+            val selectedPost = mainViewModel.selectedPost
+            if (selectedPost != null) {
+                PostDetailContent(
+                    mainViewModel = mainViewModel,
+                    post = selectedPost,
+                    onProfileClick = onProfileClick
+                )
+            } else {
+                Text("Selecciona un post para ver su detalle", style = MaterialTheme.typography.bodyLarge)
             }
         }
     }

@@ -39,9 +39,19 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var selectedCategory by mutableStateOf("Todos")
         private set
 
-    // <-- CAMBIO: Estado para la pestaña seleccionada (0 para "Todos", 1 para "Siguiendo")
     var selectedFeedTab by mutableStateOf(0)
         private set
+
+    // <-- CAMBIO: ID del post seleccionado para la vista detalle en horizontal
+    var selectedPostId by mutableStateOf<String?>(null)
+        private set
+
+    // <-- CAMBIO: Post completo derivado del ID seleccionado
+    val selectedPost by derivedStateOf {
+        selectedPostId?.let { id ->
+            originalPosts.find { it.id == id }
+        }
+    }
 
     private val _comments = MutableStateFlow<List<Comment>>(emptyList())
     val comments = _comments.asStateFlow()
@@ -80,7 +90,15 @@ class MainViewModel(initialUser: User) : ViewModel() {
         }
     }
 
-    // <-- CAMBIO: Nueva función para cambiar la pestaña del feed
+    // <-- CAMBIO: Nueva función para seleccionar/deseleccionar un post
+    fun selectPost(postId: String?) {
+        selectedPostId = postId
+        // Si estamos en modo detalle, cargamos sus comentarios
+        if (postId != null) {
+            loadComments(postId)
+        }
+    }
+
     fun onFeedTabSelected(tabIndex: Int) {
         selectedFeedTab = tabIndex
         applyFilters() // Re-aplicar filtros cada vez que se cambia la pestaña
@@ -141,7 +159,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     suspend fun refreshCurrentUser() {
         try {
             authRepository.getUser(user.uid)?.let { user = it }
-            applyFilters() // <-- CAMBIO: Refrescar posts al actualizar el usuario (por si se sigue a alguien nuevo)
+            applyFilters()
         } catch (e: Exception) {
             Log.e("MainViewModel", "Failed to refresh current user", e)
         }
@@ -238,24 +256,19 @@ class MainViewModel(initialUser: User) : ViewModel() {
         applyFilters()
     }
 
-    // <-- CAMBIO: `applyFilters` ahora tiene en cuenta la pestaña seleccionada
     private fun applyFilters() {
-        // 1. Determinar la lista base de posts según la pestaña seleccionada
         val basePosts = if (selectedFeedTab == 0) {
-            originalPosts // Pestaña "Todos"
+            originalPosts
         } else {
-            // Pestaña "Siguiendo": filtrar posts cuyo autor esté en mi lista de `following`
             originalPosts.filter { post -> user.following.contains(post.user?.uid) }
         }
 
-        // 2. Filtrar por categoría
         val filteredByCategory = if (selectedCategory == "Todos") {
             basePosts
         } else {
             basePosts.filter { it.category.equals(selectedCategory, ignoreCase = true) }
         }
 
-        // 3. Filtrar por búsqueda de texto
         posts = if (searchQuery.isBlank()) {
             filteredByCategory
         } else {
