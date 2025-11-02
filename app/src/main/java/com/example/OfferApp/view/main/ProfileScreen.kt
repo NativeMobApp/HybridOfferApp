@@ -60,10 +60,15 @@ fun ProfileScreen(
     onProfileClick: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
-            uri?.let { mainViewModel.updateProfileImage(it) }
+            uri?.let {
+                imageUri = it // Update local state for immediate preview
+                mainViewModel.updateProfileImage(it)
+            }
         }
     )
 
@@ -101,9 +106,11 @@ fun ProfileScreen(
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (user.profileImageUrl.isNotBlank()) {
+                    val model = imageUri ?: user.profileImageUrl
+
+                    if (model.toString().isNotBlank()) {
                         AsyncImage(
-                            model = user.profileImageUrl,
+                            model = model,
                             contentDescription = "Foto de perfil",
                             modifier = Modifier
                                 .size(120.dp)

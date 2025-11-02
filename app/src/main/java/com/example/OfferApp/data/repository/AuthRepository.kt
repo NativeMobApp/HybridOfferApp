@@ -91,7 +91,7 @@ class AuthRepository(
                     override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
 
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
-                        val imageUrl = resultData["url"].toString()
+                        val imageUrl = resultData["secure_url"].toString()
                         if (continuation.isActive) {
                             continuation.resume(imageUrl)
                         }
