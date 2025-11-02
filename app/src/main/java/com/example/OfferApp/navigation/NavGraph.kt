@@ -166,7 +166,9 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
                     onProfileClick = { userId -> navController.navigate(Screen.Profile.createRoute(userId)) }
                 )
             } else {
-                navController.popBackStack()
+                LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
             }
         }
 

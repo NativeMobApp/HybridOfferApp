@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbDown
@@ -63,7 +64,8 @@ fun PostDetailScreen(
             mainViewModel = mainViewModel,
             post = post,
             modifier = Modifier.padding(paddingValues),
-            onProfileClick = onProfileClick // Pass the navigation action
+            onProfileClick = onProfileClick, // Pass the navigation action
+            onBackClicked = onBackClicked
         )
     }
 }
@@ -73,18 +75,43 @@ fun PostDetailContent(
     mainViewModel: MainViewModel,
     post: Post,
     modifier: Modifier = Modifier,
-    onProfileClick: (String) -> Unit
+    onProfileClick: (String) -> Unit,
+    onBackClicked: () -> Unit
 ) {
     val comments by mainViewModel.comments.collectAsState()
     var newCommentText by remember { mutableStateOf("") }
     val currentUserIsAuthor = mainViewModel.user.uid == post.user?.uid
+    var showDialog by remember { mutableStateOf(false) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Confirmar eliminación") },
+            text = { Text("¿Estás seguro de que quieres eliminar este post? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        mainViewModel.deletePost(post.id)
+                        showDialog = false
+                    }
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        PostInfoSection(mainViewModel, post, onProfileClick)
+        PostInfoSection(mainViewModel, post, onProfileClick) { showDialog = true }
 
         Divider(modifier = Modifier.padding(top = 16.dp))
         Text(
@@ -128,7 +155,8 @@ fun PostDetailContent(
 private fun PostInfoSection(
     mainViewModel: MainViewModel,
     post: Post,
-    onProfileClick: (String) -> Unit
+    onProfileClick: (String) -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     val context = LocalContext.current
     val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
@@ -239,6 +267,12 @@ private fun PostInfoSection(
                 context.startActivity(shareIntent)
             }) {
                 Icon(Icons.Default.Share, contentDescription = "Compartir")
+            }
+
+            if (currentUserIsAuthor) {
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar post", tint = Color.Red)
+                }
             }
         }
     }

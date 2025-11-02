@@ -195,7 +195,8 @@ fun LandscapeLayout(mainViewModel: MainViewModel, onProfileClick: (String) -> Un
                 PostDetailContent(
                     mainViewModel = mainViewModel,
                     post = selectedPost,
-                    onProfileClick = onProfileClick
+                    onProfileClick = onProfileClick,
+                    onBackClicked = { mainViewModel.selectPost(null) }
                 )
             } else {
                 Text("Selecciona un post para ver su detalle", style = MaterialTheme.typography.bodyLarge)

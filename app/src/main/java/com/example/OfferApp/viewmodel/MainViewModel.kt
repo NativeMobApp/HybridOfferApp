@@ -282,4 +282,10 @@ class MainViewModel(initialUser: User) : ViewModel() {
     fun getPostById(id: String): Post? {
         return originalPosts.find { it.id == id }
     }
+
+    fun deletePost(postId: String) {
+        viewModelScope.launch {
+            postRepository.deletePost(postId)
+        }
+    }
 }

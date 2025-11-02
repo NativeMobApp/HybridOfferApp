@@ -148,4 +148,20 @@ class PostRepository {
             awaitClose { listener.remove() }
         }
     }
+
+    suspend fun deletePost(postId: String): Result<Unit> {
+        return try {
+            // First, delete all comments in the subcollection
+            val commentsQuery = postsCollection.document(postId).collection("comments").get().await()
+            for (document in commentsQuery.documents) {
+                document.reference.delete().await()
+            }
+
+            // Then, delete the post itself
+            postsCollection.document(postId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
