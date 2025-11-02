@@ -72,7 +72,8 @@ fun PostDetailScreen(
                 onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                 onBackClicked = onBackClicked,
                 onSesionClicked = onLogoutClicked,
-                onProfileClick = { onProfileClick(mainViewModel.user.uid) }
+                onProfileClick = { onProfileClick(mainViewModel.user.uid) },
+                onLogoClick = onBackClicked
             )
         }
     ) { paddingValues ->

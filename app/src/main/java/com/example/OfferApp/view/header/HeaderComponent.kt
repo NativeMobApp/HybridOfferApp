@@ -1,7 +1,16 @@
 package com.example.OfferApp.view.header
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,7 +36,8 @@ fun Header(
     query: String? = null,
     onQueryChange: ((String) -> Unit)? = null,
     onBackClicked: (() -> Unit)? = null,
-    onMenuClick: (() -> Unit)? = null
+    onMenuClick: (() -> Unit)? = null,
+    onLogoClick: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -53,7 +63,22 @@ fun Header(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                 }
             }
-            
+
+            if (onLogoClick != null) {
+                Row(
+                    modifier = Modifier
+                        .clickable(onClick = onLogoClick)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.outline_percent_discount_24),
+                        contentDescription = "Logo de OfferApp",
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+
             if (query != null && onQueryChange != null) {
                 SearchBar(
                     query = query,
@@ -75,7 +100,7 @@ fun Header(
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
                         text = { Text("Hola, $username") },
-                        enabled = false, 
+                        enabled = false,
                         onClick = {}
                     )
                     HorizontalDivider()

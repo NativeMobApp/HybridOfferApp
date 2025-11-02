@@ -109,7 +109,11 @@ fun MainScreen(
                     onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                     onProfileClick = { onNavigateToProfile(mainViewModel.user.uid) },
                     onSesionClicked = onLogoutClicked,
-                    onMenuClick = { scope.launch { drawerState.open() } }
+                    onMenuClick = { scope.launch { drawerState.open() } },
+                    onLogoClick = {
+                        mainViewModel.onSearchQueryChange("")
+                        mainViewModel.filterByCategory("Todos")
+                    }
                 )
             },
             floatingActionButton = {
