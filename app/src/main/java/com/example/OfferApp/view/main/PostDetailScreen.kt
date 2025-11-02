@@ -1,8 +1,12 @@
 package com.example.OfferApp.view.main
 
 import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,8 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
@@ -24,15 +28,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.preference.PreferenceManager
 import coil.compose.AsyncImage
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.Post
 import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -42,7 +58,7 @@ fun PostDetailScreen(
     post: Post,
     onBackClicked: () -> Unit,
     onLogoutClicked: () -> Unit,
-    onProfileClick: (String) -> Unit // Modified: Now accepts a user ID
+    onProfileClick: (String) -> Unit
 ) {
     LaunchedEffect(post.id) {
         mainViewModel.loadComments(post.id)
@@ -56,7 +72,7 @@ fun PostDetailScreen(
                 onQueryChange = { mainViewModel.onSearchQueryChange(it) },
                 onBackClicked = onBackClicked,
                 onSesionClicked = onLogoutClicked,
-                onProfileClick = { onProfileClick(mainViewModel.user.uid) } // Navigate to current user's profile
+                onProfileClick = { onProfileClick(mainViewModel.user.uid) }
             )
         }
     ) { paddingValues ->
@@ -64,8 +80,7 @@ fun PostDetailScreen(
             mainViewModel = mainViewModel,
             post = post,
             modifier = Modifier.padding(paddingValues),
-            onProfileClick = onProfileClick, // Pass the navigation action
-            onBackClicked = onBackClicked
+            onProfileClick = onProfileClick
         )
     }
 }
@@ -75,13 +90,15 @@ fun PostDetailContent(
     mainViewModel: MainViewModel,
     post: Post,
     modifier: Modifier = Modifier,
-    onProfileClick: (String) -> Unit,
-    onBackClicked: () -> Unit
+    onProfileClick: (String) -> Unit
 ) {
     val comments by mainViewModel.comments.collectAsState()
     var newCommentText by remember { mutableStateOf("") }
     val currentUserIsAuthor = mainViewModel.user.uid == post.user?.uid
     var showDialog by remember { mutableStateOf(false) }
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabTitles = listOf("Foto", "Mapa")
+    val isMapTouched = remember { mutableStateOf(false) }
 
     if (showDialog) {
         AlertDialog(
@@ -89,52 +106,83 @@ fun PostDetailContent(
             title = { Text("Confirmar eliminación") },
             text = { Text("¿Estás seguro de que quieres eliminar este post? Esta acción no se puede deshacer.") },
             confirmButton = {
-                Button(
-                    onClick = {
-                        mainViewModel.deletePost(post.id)
-                        showDialog = false
-                    }
-                ) {
-                    Text("Eliminar")
-                }
+                Button(onClick = {
+                    mainViewModel.deletePost(post.id)
+                    showDialog = false
+                }) { Text("Eliminar") }
             },
             dismissButton = {
-                Button(onClick = { showDialog = false }) {
-                    Text("Cancelar")
-                }
+                Button(onClick = { showDialog = false }) { Text("Cancelar") }
             }
         )
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        PostInfoSection(mainViewModel, post, onProfileClick) { showDialog = true }
-
-        Divider(modifier = Modifier.padding(top = 16.dp))
-        Text(
-            "Comentarios",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(16.dp)
-        )
-
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            if (comments.isEmpty()) {
-                Text(
-                    "Aún no hay comentarios. ¡Sé el primero!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 16.dp)
+    Column(modifier = modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTabIndex) {
+            tabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTabIndex == index,
+                    onClick = { selectedTabIndex = index },
+                    text = { Text(text = title) }
                 )
-            } else {
-                comments.forEach { comment ->
-                    CommentItem(comment, onProfileClick)
-                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        val scrollState = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(scrollState, enabled = !isMapTouched.value)
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp)
+                    .zIndex(-1f)
+            ) {
+                when (selectedTabIndex) {
+                    0 -> {
+                        AsyncImage(
+                            model = post.imageUrl.replace("http://", "https://"),
+                            contentDescription = "Post image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    1 -> {
+                        PostMapView(post = post, isMapTouched = isMapTouched)
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                PostInfoSection(mainViewModel, post, onProfileClick) { showDialog = true }
+
+                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
+                Text(
+                    "Comentarios",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(16.dp)
+                )
+
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    if (comments.isEmpty()) {
+                        Text(
+                            "Aún no hay comentarios. ¡Sé el primero!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    } else {
+                        comments.forEach { comment ->
+                            CommentItem(comment, onProfileClick)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
 
         if (!currentUserIsAuthor) {
             AddCommentSection(
@@ -146,9 +194,69 @@ fun PostDetailContent(
                 }
             )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
+}
+
+@Composable
+@Suppress("DEPRECATION")
+private fun PostMapView(post: Post, isMapTouched: MutableState<Boolean>) {
+    val context = LocalContext.current
+    val mapView = remember {
+        MapView(context).apply {
+            Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller.setZoom(15.0)
+            val geoPoint = GeoPoint(post.latitude, post.longitude)
+            controller.setCenter(geoPoint)
+
+            val marker = Marker(this)
+            marker.position = geoPoint
+            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            marker.title = post.description
+            marker.snippet = post.location
+            overlays.add(marker)
+            marker.showInfoWindow()
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, mapView) {
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            mapView.onDetach()
+        }
+    }
+
+    AndroidView(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                forEachGesture {
+                    awaitPointerEventScope {
+                        awaitFirstDown(requireUnconsumed = false)
+                        isMapTouched.value = true // Disable parent scrolling
+                        do {
+                            val event = awaitPointerEvent()
+                        } while (event.changes.any { it.pressed })
+                        isMapTouched.value = false // Re-enable parent scrolling
+                    }
+                }
+            },
+        factory = { mapView },
+        update = {
+            it.controller.setCenter(GeoPoint(post.latitude, post.longitude))
+            it.invalidate()
+        }
+    )
 }
 
 @Composable
@@ -175,12 +283,6 @@ private fun PostInfoSection(
         modifier = Modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AsyncImage(
-            model = post.imageUrl.replace("http://", "https://"),
-            contentDescription = "Post image",
-            modifier = Modifier.fillMaxWidth(),
-            contentScale = ContentScale.Crop
-        )
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = post.description, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(8.dp))
@@ -198,10 +300,6 @@ private fun PostInfoSection(
         }
 
         Text(text = "Ubicación: ${post.location}", style = MaterialTheme.typography.bodyMedium)
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = "Latitud: ${post.latitude}", style = MaterialTheme.typography.bodySmall)
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = "Longitud: ${post.longitude}", style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
@@ -312,7 +410,7 @@ private fun AddCommentSection(
             modifier = Modifier.weight(1f)
         )
         IconButton(onClick = onSend, enabled = value.isNotBlank()) {
-            Icon(Icons.Default.Send, contentDescription = "Enviar comentario")
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario")
         }
     }
 }

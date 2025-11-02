@@ -16,11 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material3.Divider
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -81,7 +82,7 @@ fun MainScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    Divider(color = Color.LightGray)
+                    HorizontalDivider(color = Color.LightGray)
                     categories.forEach { category ->
                         Text(
                             text = category,
@@ -122,7 +123,7 @@ fun MainScreen(
                     FloatingActionButton(
                         onClick = onNavigateToMap
                     ) {
-                        Icon(Icons.Default.Map, contentDescription = "Ver en mapa")
+                        Icon(Icons.Default.LocationOn, contentDescription = "Ver en mapa")
                     }
                 }
             }
@@ -167,7 +168,6 @@ fun LandscapeLayout(mainViewModel: MainViewModel, onProfileClick: (String) -> Un
                 .weight(0.4f)
         ) {
             items(mainViewModel.posts) { post ->
-                // <-- CAMBIO: Se envuelve el PostItem en un Box
                 val modifier = if (mainViewModel.selectedPostId == post.id) {
                     Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
                 } else {
@@ -177,7 +177,6 @@ fun LandscapeLayout(mainViewModel: MainViewModel, onProfileClick: (String) -> Un
                     PostItem(
                         mainViewModel = mainViewModel,
                         post = post,
-                        // Al hacer clic, solo se selecciona, no se navega
                         onClick = { mainViewModel.selectPost(post.id) }
                     )
                 }
@@ -195,8 +194,7 @@ fun LandscapeLayout(mainViewModel: MainViewModel, onProfileClick: (String) -> Un
                 PostDetailContent(
                     mainViewModel = mainViewModel,
                     post = selectedPost,
-                    onProfileClick = onProfileClick,
-                    onBackClicked = { mainViewModel.selectPost(null) }
+                    onProfileClick = onProfileClick
                 )
             } else {
                 Text("Selecciona un post para ver su detalle", style = MaterialTheme.typography.bodyLarge)
