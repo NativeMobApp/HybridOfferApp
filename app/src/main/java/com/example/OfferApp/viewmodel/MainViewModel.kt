@@ -33,7 +33,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var posts by mutableStateOf<List<Post>>(emptyList())
         private set
 
-    private var originalPosts by mutableStateOf<List<Post>>(emptyList())
+    private var allPosts by mutableStateOf<List<Post>>(emptyList())
 
     var searchQuery by mutableStateOf("")
         private set
@@ -54,7 +54,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     val selectedPost by derivedStateOf {
         selectedPostId?.let { id ->
-            originalPosts.find { it.id == id }
+            allPosts.find { it.id == id }
         }
     }
 
@@ -73,14 +73,14 @@ class MainViewModel(initialUser: User) : ViewModel() {
     private var commentsJob: Job? = null
 
     val myPosts: List<Post> by derivedStateOf {
-        originalPosts.filter { it.user?.uid == this@MainViewModel.user.uid }
+        allPosts.filter { it.user?.uid == this@MainViewModel.user.uid }
     }
 
     init {
         viewModelScope.launch {
             postRepository.deleteExpiredPosts()
         }
-        loadMorePosts() // Initial load
+        refreshPosts() // Initial load
         viewModelScope.launch {
             authRepository.getUser(initialUser.uid)?.let { fetchedUser ->
                 this@MainViewModel.user = fetchedUser
@@ -99,9 +99,12 @@ class MainViewModel(initialUser: User) : ViewModel() {
         viewModelScope.launch {
             isLoading = true
             try {
-                val (newPosts, newLastVisible) = postRepository.getPosts(lastVisiblePost)
+                val (newPosts, newLastVisible) = postRepository.getPosts(
+                    lastVisiblePost = lastVisiblePost,
+                    category = selectedCategory
+                )
                 if (newPosts.isNotEmpty()) {
-                    originalPosts = originalPosts + newPosts
+                    allPosts = allPosts + newPosts
                     lastVisiblePost = newLastVisible
                     applyFilters()
                 } else {
@@ -116,7 +119,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     fun refreshPosts() {
-        originalPosts = emptyList()
+        allPosts = emptyList()
         lastVisiblePost = null
         allPostsLoaded = false
         loadMorePosts()
@@ -189,7 +192,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     suspend fun refreshCurrentUser() {
         try {
             authRepository.getUser(user.uid)?.let { user = it }
-            applyFilters()
+            applyFilters() // Re-apply filters as following list might have changed
         } catch (e: Exception) {
             Log.e("MainViewModel", "Failed to refresh current user", e)
         }
@@ -226,7 +229,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     fun getPostsByUser(userId: String): List<Post> {
-        return originalPosts.filter { it.user?.uid == userId }
+        return allPosts.filter { it.user?.uid == userId }
     }
 
     fun updateProfileImage(imageUri: Uri) {
@@ -271,42 +274,34 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     fun updatePostScore(postId: String, value: Int) {
-        val postIndex = originalPosts.indexOfFirst { it.id == postId }
+        val postIndex = allPosts.indexOfFirst { it.id == postId }
         if (postIndex == -1) return
 
-        val originalPost = originalPosts[postIndex]
+        val originalPost = allPosts[postIndex]
         val userId = user.uid
 
+        val newScores = originalPost.scores.toMutableList()
         val existingScore = originalPost.scores.find { it.userId == userId }
 
-        val newScores = originalPost.scores.toMutableList()
-
         if (existingScore != null) {
-            // User has voted before, remove their old vote
             newScores.removeAll { it.userId == userId }
             if (existingScore.value != value) {
-                // It was a different vote, so add the new one
                 newScores.add(Score(userId, value))
             }
-            // If it was the same vote, it's a cancellation, so we just remove it
         } else {
-            // New vote
             newScores.add(Score(userId, value))
         }
 
         val updatedPost = originalPost.copy(scores = newScores)
 
-        // Optimistic UI update
-        originalPosts = originalPosts.toMutableList().also { it[postIndex] = updatedPost }
+        allPosts = allPosts.toMutableList().also { it[postIndex] = updatedPost }
         applyFilters()
 
-        // Sync with backend
         viewModelScope.launch {
             try {
                 postRepository.updatePostScore(postId, user.uid, value)
             } catch (e: Exception) {
-                // Rollback on failure
-                originalPosts = originalPosts.toMutableList().also { it[postIndex] = originalPost }
+                allPosts = allPosts.toMutableList().also { it[postIndex] = originalPost }
                 applyFilters()
                 Log.e("MainViewModel", "Failed to update post score, rolled back UI.", e)
             }
@@ -320,26 +315,22 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun filterByCategory(category: String) {
         selectedCategory = category
-        applyFilters()
+        refreshPosts() // Reload from server with the new category filter
     }
 
     private fun applyFilters() {
-        val basePosts = if (selectedFeedTab == 0) {
-            originalPosts
+        val basePosts = if (selectedFeedTab == 1) {
+            // "Following" tab: Filter client-side
+            allPosts.filter { post -> user.following.contains(post.user?.uid) }
         } else {
-            originalPosts.filter { post -> user.following.contains(post.user?.uid) }
-        }
-
-        val filteredByCategory = if (selectedCategory == "Todos") {
-            basePosts
-        } else {
-            basePosts.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+            // "All" tab: Use the list as is (already filtered by category on server)
+            allPosts
         }
 
         posts = if (searchQuery.isBlank()) {
-            filteredByCategory
+            basePosts
         } else {
-            filteredByCategory.filter {
+            basePosts.filter {
                 it.description.contains(searchQuery, ignoreCase = true) ||
                         it.location.contains(searchQuery, ignoreCase = true)
             }
@@ -347,7 +338,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     fun getPostById(id: String): Post? {
-        return originalPosts.find { it.id == id }
+        return allPosts.find { it.id == id }
     }
 
     fun deletePost(postId: String) {

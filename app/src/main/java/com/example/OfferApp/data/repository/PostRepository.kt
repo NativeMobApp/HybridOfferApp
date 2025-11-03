@@ -127,7 +127,7 @@ class PostRepository {
     fun getCommentsByUser(userId: String): Flow<List<Comment>> {
         return callbackFlow {
             val listener = firestore.collectionGroup("comments")
-                .whereEqualTo("userId", userId) // Querying by the new simple field
+                .whereEqualTo("userId", userId)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
@@ -143,11 +143,18 @@ class PostRepository {
         }
     }
 
-    suspend fun getPosts(lastVisiblePost: DocumentSnapshot? = null): Pair<List<Post>, DocumentSnapshot?> {
-        val limit = 3L
-        val query = postsCollection
-            .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(limit)
+    suspend fun getPosts(
+        lastVisiblePost: DocumentSnapshot? = null,
+        category: String? = null
+    ): Pair<List<Post>, DocumentSnapshot?> {
+        val limit = 10L
+        var query: Query = postsCollection
+
+        if (category != null && category != "Todos") {
+            query = query.whereEqualTo("category", category)
+        }
+
+        query = query.orderBy("timestamp", Query.Direction.DESCENDING).limit(limit)
 
         val finalQuery = if (lastVisiblePost != null) {
             query.startAfter(lastVisiblePost)
