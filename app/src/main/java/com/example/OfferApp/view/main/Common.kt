@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.Card
@@ -42,6 +43,9 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
     val userVote = post.scores.find { it.userId == mainViewModel.user.uid }?.value
     val likeColor = if (userVote == 1) Color.Green else LocalContentColor.current
     val dislikeColor = if (userVote == -1) Color.Red else LocalContentColor.current
+
+    val isFavorite = mainViewModel.user.favorites.contains(post.id)
+    val favoriteColor = if (isFavorite) Color.Yellow else LocalContentColor.current
 
     Card(
         modifier = Modifier
@@ -90,6 +94,9 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
                 IconButton(onClick = { mainViewModel.updatePostScore(post.id, -1) }, enabled = !currentUserIsAuthor) {
                     Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = dislikeColor)
                 }
+            }
+            IconButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
+                Icon(Icons.Default.Star, contentDescription = "Favorite", tint = favoriteColor)
             }
         }
     }

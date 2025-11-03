@@ -76,6 +76,10 @@ class MainViewModel(initialUser: User) : ViewModel() {
         allPosts.filter { it.user?.uid == this@MainViewModel.user.uid }
     }
 
+    val favoritePosts: List<Post> by derivedStateOf {
+        allPosts.filter { post -> user.favorites.contains(post.id) }
+    }
+
     init {
         viewModelScope.launch {
             postRepository.deleteExpiredPosts()
@@ -123,6 +127,40 @@ class MainViewModel(initialUser: User) : ViewModel() {
         lastVisiblePost = null
         allPostsLoaded = false
         loadMorePosts()
+    }
+
+    fun loadAllPostsForProfile() {
+        if (isLoading) return
+
+        viewModelScope.launch {
+            isLoading = true
+            val tempAllPosts = mutableListOf<Post>()
+            var lastVisible: DocumentSnapshot? = null
+            var morePostsExist = true
+
+            try {
+                while(morePostsExist) {
+                    val (newPosts, newLastVisible) = postRepository.getPosts(
+                        lastVisiblePost = lastVisible,
+                        category = "Todos"
+                    )
+
+                    if (newPosts.isNotEmpty()) {
+                        tempAllPosts.addAll(newPosts)
+                        lastVisible = newLastVisible
+                    } else {
+                        morePostsExist = false
+                    }
+                }
+                allPosts = tempAllPosts
+                applyFilters()
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error loading all posts for profile", e)
+            } finally {
+                isLoading = false
+                allPostsLoaded = true
+            }
+        }
     }
 
     fun selectPost(postId: String?) {
@@ -271,6 +309,35 @@ class MainViewModel(initialUser: User) : ViewModel() {
             user = this@MainViewModel.user
         )
         return postRepository.addPost(post, imageUri)
+    }
+
+    fun toggleFavorite(postId: String) {
+        val isCurrentlyFavorite = user.favorites.contains(postId)
+
+        val updatedFavorites = if (isCurrentlyFavorite) {
+            user.favorites - postId
+        } else {
+            user.favorites + postId
+        }
+        user = user.copy(favorites = updatedFavorites)
+
+        viewModelScope.launch {
+            val result = if (isCurrentlyFavorite) {
+                authRepository.removeFavorite(user.uid, postId)
+            } else {
+                authRepository.addFavorite(user.uid, postId)
+            }
+
+            if (result.isFailure) {
+                val rolledBackFavorites = if (isCurrentlyFavorite) {
+                    user.favorites + postId
+                } else {
+                    user.favorites - postId
+                }
+                user = user.copy(favorites = rolledBackFavorites)
+                Log.e("MainViewModel", "Failed to toggle favorite status for post $postId")
+            }
+        }
     }
 
     fun updatePostScore(postId: String, value: Int) {

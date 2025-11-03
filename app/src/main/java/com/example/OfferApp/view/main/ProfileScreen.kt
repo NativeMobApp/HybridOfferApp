@@ -27,7 +27,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,8 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.User
@@ -72,16 +75,26 @@ fun ProfileScreen(
         }
     )
 
-    // Load the user profile information when the screen is first displayed or the userId changes.
-    LaunchedEffect(userId) {
-        mainViewModel.loadUserProfile(userId)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, userId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                scope.launch {
+                    mainViewModel.refreshCurrentUser()
+                }
+                mainViewModel.loadUserProfile(userId)
+                mainViewModel.loadAllPostsForProfile()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val profileUser by mainViewModel.profileUser.collectAsState()
-    // Use the appropriate comment stream based on whether it is "My Profile" or not.
     val myComments by mainViewModel.myComments.collectAsState()
     val otherUserComments by mainViewModel.profileUserComments.collectAsState()
-
 
     Scaffold(
         topBar = {
@@ -165,7 +178,7 @@ fun ProfileScreen(
 
                 // Tab Section
                 var selectedTabIndex by remember { mutableStateOf(0) }
-                val tabs = if(isMyProfile) listOf("Mis Posts", "Mis Comentarios") else listOf("Posts", "Comentarios")
+                val tabs = if (isMyProfile) listOf("Posts", "Comentarios", "Favoritos") else listOf("Posts", "Comentarios")
 
                 TabRow(selectedTabIndex = selectedTabIndex) {
                     tabs.forEachIndexed { index, title ->
@@ -188,8 +201,6 @@ fun ProfileScreen(
                         }
                     }
                     1 -> {
-                        // ** THIS IS THE KEY CHANGE **
-                        // Show `myComments` for the current user and `otherUserComments` for others.
                         val commentsToShow = if (isMyProfile) myComments else otherUserComments
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(commentsToShow) { comment ->
@@ -198,6 +209,15 @@ fun ProfileScreen(
                                     comment = comment,
                                     onClick = { onPostClick(comment.postId) }
                                 )
+                            }
+                        }
+                    }
+                    2 -> {
+                        if (isMyProfile) {
+                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                items(mainViewModel.favoritePosts) { post ->
+                                    PostItem(mainViewModel = mainViewModel, post = post, onClick = { onPostClick(post.id) })
+                                }
                             }
                         }
                     }

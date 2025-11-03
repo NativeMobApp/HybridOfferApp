@@ -163,4 +163,22 @@ class AuthRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun addFavorite(userId: String, postId: String): Result<Unit> {
+        return try {
+            usersCollection.document(userId).update("favorites", FieldValue.arrayUnion(postId)).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removeFavorite(userId: String, postId: String): Result<Unit> {
+        return try {
+            usersCollection.document(userId).update("favorites", FieldValue.arrayRemove(postId)).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

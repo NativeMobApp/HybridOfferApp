@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.*
@@ -279,6 +280,8 @@ private fun PostInfoSection(
     val userVote = post.scores.find { it.userId == mainViewModel.user.uid }?.value
     val likeColor = if (userVote == 1) Color.Green else LocalContentColor.current
     val dislikeColor = if (userVote == -1) Color.Red else LocalContentColor.current
+    val isFavorite = mainViewModel.user.favorites.contains(post.id)
+    val favoriteColor = if (isFavorite) Color.Yellow else LocalContentColor.current
 
     Column(
         modifier = Modifier.padding(16.dp),
@@ -344,6 +347,9 @@ private fun PostInfoSection(
                 Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = dislikeColor)
             }
             Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
+                Icon(Icons.Default.Star, contentDescription = "Favorite", tint = favoriteColor)
+            }
             IconButton(onClick = {
                 val shareText = """
                     ¡Mira esta oferta en OfferApp!

@@ -9,5 +9,6 @@ data class User(
     var email: String = "",
     var profileImageUrl: String = "", // Field for profile picture URL
     var followers: List<String> = listOf(),
-    var following: List<String> = listOf()
+    var following: List<String> = listOf(),
+    var favorites: List<String> = listOf() // List of favorite post IDs
 )
