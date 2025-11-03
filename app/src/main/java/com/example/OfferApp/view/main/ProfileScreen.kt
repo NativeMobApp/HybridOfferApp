@@ -104,6 +104,7 @@ fun ProfileScreen(
         topBar = {
             Header(
                 username = mainViewModel.user.username,
+                title = profileUser?.let { "Perfil de ${it.username}" },
                 onBackClicked = onBackClicked,
                 onSesionClicked = onLogoutClicked,
                 onProfileClick = { onProfileClick(mainViewModel.user.uid) }

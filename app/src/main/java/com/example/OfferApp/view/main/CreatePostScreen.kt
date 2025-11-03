@@ -17,24 +17,29 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
+import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreatePostScreen(mainViewModel: MainViewModel, onPostCreated: () -> Unit) {
+fun CreatePostScreen(
+    mainViewModel: MainViewModel,
+    onPostCreated: () -> Unit,
+    onBackClicked: () -> Unit,
+    onLogoutClicked: () -> Unit,
+    onProfileClick: () -> Unit
+) {
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
@@ -88,94 +93,112 @@ fun CreatePostScreen(mainViewModel: MainViewModel, onPostCreated: () -> Unit) {
             showCamera = false
         })
     } else {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        Scaffold(
+            topBar = {
+                Header(
+                    username = mainViewModel.user.username,
+                    title = "Crear Post",
+                    onProfileClick = onProfileClick,
+                    onSesionClicked = onLogoutClicked,
+                    onBackClicked = onBackClicked
+                )
+            }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                contentAlignment = Alignment.Center
             ) {
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Descripción") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = { location = it },
-                    label = { Text("Ubicación") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
-                )
-                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it },
-                    label = { Text("Precio") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading,
-                    // keyboardOptions removed to prevent build error
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                Column(
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
                     OutlinedTextField(
-                        value = selectedCategory,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Categoría") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
-                    )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        categories.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category) },
-                                onClick = {
-                                    selectedCategory = category
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                imageUri?.let {
-                    Image(
-                        painter = rememberAsyncImagePainter(it),
-                        contentDescription = "Imagen de la publicación",
-                        modifier = Modifier.size(150.dp)
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Descripción") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                }
-                Button(onClick = { showCamera = true }, enabled = !isLoading) {
-                    Text("Tomar foto")
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        imageUri?.let { uri ->
-                            scope.launch {
-                                isLoading = true
-                                val result = mainViewModel.addPost(description, uri, location, latitude, longitude, selectedCategory, price.toDoubleOrNull() ?: 0.0)
-                                if (result.isSuccess) {
-                                    onPostCreated()
-                                }
-                                isLoading = false
+                    OutlinedTextField(
+                        value = location,
+                        onValueChange = { location = it },
+                        label = { Text("Ubicación") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { price = it },
+                        label = { Text("Precio") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                        OutlinedTextField(
+                            value = selectedCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Categoría") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            colors = OutlinedTextFieldDefaults.colors()
+                        )
+                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    onClick = {
+                                        selectedCategory = category
+                                        expanded = false
+                                    }
+                                )
                             }
                         }
-                    },
-                    enabled = imageUri != null && selectedCategory.isNotBlank() && price.isNotBlank() && !isLoading
-                ) {
-                    Text("Guardar")
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    imageUri?.let {
+                        Image(
+                            painter = rememberAsyncImagePainter(it),
+                            contentDescription = "Imagen de la publicación",
+                            modifier = Modifier.size(150.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    Button(onClick = { showCamera = true }, enabled = !isLoading) {
+                        Text("Tomar foto")
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            imageUri?.let { uri ->
+                                scope.launch {
+                                    isLoading = true
+                                    val result = mainViewModel.addPost(description, uri, location, latitude, longitude, selectedCategory, price.toDoubleOrNull() ?: 0.0)
+                                    if (result.isSuccess) {
+                                        onPostCreated()
+                                    }
+                                    isLoading = false
+                                }
+                            }
+                        },
+                        enabled = imageUri != null && selectedCategory.isNotBlank() && price.isNotBlank() && !isLoading
+                    ) {
+                        Text("Guardar")
+                    }
                 }
-            }
-            if (isLoading) {
-                CircularProgressIndicator()
+                if (isLoading) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }

@@ -24,9 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
@@ -47,7 +45,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -56,6 +53,7 @@ import androidx.preference.PreferenceManager
 import coil.compose.AsyncImage
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.Post
+import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -77,16 +75,14 @@ fun PostDetailScreen(
         mainViewModel.loadComments(post.id)
     }
 
-    // Use a custom top bar for more control
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(post.description, maxLines = 1) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClicked) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            Header(
+                username = mainViewModel.user.username,
+                title = post.description,
+                onBackClicked = onBackClicked,
+                onProfileClick = { onProfileClick(mainViewModel.user.uid) },
+                onSesionClicked = onLogoutClicked
             )
         }
     ) { paddingValues ->

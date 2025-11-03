@@ -166,7 +166,15 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
                     onPostCreated = {
                         mainViewModel.refreshPosts()
                         navController.popBackStack()
-                    }
+                    },
+                    onBackClicked = { navController.popBackStack() },
+                    onLogoutClicked = {
+                        authViewModel.logout()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    },
+                    onProfileClick = { navController.navigate(Screen.MyProfile.route) }
                 )
             }
         }
@@ -206,7 +214,14 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             MyApplicationTheme(useDarkTheme = mainViewModel.isDarkTheme) {
                 MapScreen(
                     mainViewModel = mainViewModel,
-                    onBackClicked = { navController.popBackStack() }
+                    onBackClicked = { navController.popBackStack() },
+                    onLogoutClicked = {
+                        authViewModel.logout()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    },
+                    onProfileClick = { navController.navigate(Screen.MyProfile.route) }
                 )
             }
         }

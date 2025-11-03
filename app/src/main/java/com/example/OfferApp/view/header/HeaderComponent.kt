@@ -31,6 +31,7 @@ fun Header(
     onProfileClick: () -> Unit,
     username: String,
     modifier: Modifier = Modifier,
+    title: String? = null,
     query: String? = null,
     onQueryChange: ((String) -> Unit)? = null,
     onBackClicked: (() -> Unit)? = null,
@@ -84,6 +85,14 @@ fun Header(
                     query = query,
                     onQueryChange = onQueryChange,
                     modifier = Modifier.weight(1f)
+                )
+            } else if (title != null) {
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = iconTint
                 )
             } else {
                 Spacer(modifier = Modifier.weight(1f))

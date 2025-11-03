@@ -130,6 +130,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     fun refreshPosts() {
+        posts = emptyList()
         allPosts = emptyList()
         lastVisiblePost = null
         allPostsLoaded = false
