@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
+import java.util.Date
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -80,6 +81,15 @@ class PostRepository {
                 }
                 transaction.update(postRef, "scores", newScores)
             }.await()
+
+            val updatedPost = postsCollection.document(postId).get().await().toObject(Post::class.java)
+            if (updatedPost != null) {
+                val totalScore = updatedPost.scores.sumOf { it.value }
+                if (totalScore < -15) {
+                    deletePost(postId)
+                }
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -159,6 +169,27 @@ class PostRepository {
 
             // Then, delete the post itself
             postsCollection.document(postId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteExpiredPosts(): Result<Unit> {
+        return try {
+            val thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000L
+            //val thirtyDaysInMillis = 60 * 1000L
+            val cutoffDate = Date(System.currentTimeMillis() - thirtyDaysInMillis)
+
+            val querySnapshot = postsCollection
+                .whereLessThan("timestamp", cutoffDate)
+                .get()
+                .await()
+
+            for (document in querySnapshot.documents) {
+                deletePost(document.id)
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

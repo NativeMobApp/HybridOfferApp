@@ -73,6 +73,9 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     init {
         viewModelScope.launch {
+            postRepository.deleteExpiredPosts()
+        }
+        viewModelScope.launch {
             postRepository.getPosts().collect { postList ->
                 originalPosts = postList
                 applyFilters()
@@ -101,7 +104,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun onFeedTabSelected(tabIndex: Int) {
         selectedFeedTab = tabIndex
-        applyFilters() // Re-aplicar filtros cada vez que se cambia la pestaña
+        applyFilters() // Re-aplicar filtros cada vez que se cambia la pestabña
     }
 
     fun loadUserProfile(userId: String) {

@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -35,7 +36,7 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile/{userId}") {
         fun createRoute(userId: String) = "profile/$userId"
     }
-    object MyProfile : Screen("my-profile") // For the current user's profile
+    object MyProfile : Screen("my-profile") // For the current user'''s profile
 }
 
 class MainViewModelFactory(private val user: User) : ViewModelProvider.Factory {
@@ -73,7 +74,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
                 MainScreen(
                     mainViewModel = mainViewModel,
                     onNavigateToCreatePost = { navController.navigate(Screen.CreatePost.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.MyProfile.route) }, // Navigate to current user's profile
+                    onNavigateToProfile = { navController.navigate(Screen.MyProfile.route) }, // Navigate to current user'''s profile
                     onPostClick = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) },
                     onLogoutClicked = {
                         authViewModel.logout()
@@ -92,16 +93,16 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             }
         }
 
-        val mainViewModelOwner: @Composable () -> MainViewModel = {
-            val parentEntry = remember { navController.getBackStackEntry(Screen.Main.route) }
+        val mainViewModelOwner: @Composable (NavBackStackEntry) -> MainViewModel = { entry ->
+            val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Main.route) }
             viewModel(viewModelStoreOwner = parentEntry)
         }
 
         composable(Screen.MyProfile.route) {
-            val mainViewModel = mainViewModelOwner()
+            val mainViewModel = mainViewModelOwner(it)
             ProfileScreen(
                 mainViewModel = mainViewModel,
-                userId = mainViewModel.user.uid, // Pass the current user's ID
+                userId = mainViewModel.user.uid, // Pass the current user'''s ID
                 onBackClicked = { navController.popBackStack() },
                 onLogoutClicked = {
                     authViewModel.logout()
@@ -118,7 +119,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             route = Screen.Profile.route,
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val mainViewModel = mainViewModelOwner()
+            val mainViewModel = mainViewModelOwner(backStackEntry)
             val userId = backStackEntry.arguments?.getString("userId")
             if (userId != null) {
                 ProfileScreen(
@@ -139,7 +140,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
 
         composable(Screen.CreatePost.route) {
             CreatePostScreen(
-                mainViewModel = mainViewModelOwner(),
+                mainViewModel = mainViewModelOwner(it),
                 onPostCreated = { navController.popBackStack() }
             )
         }
@@ -148,7 +149,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
             route = Screen.PostDetail.route,
             arguments = listOf(navArgument("postId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val mainViewModel = mainViewModelOwner()
+            val mainViewModel = mainViewModelOwner(backStackEntry)
             val postId = backStackEntry.arguments?.getString("postId")
             val post = postId?.let { mainViewModel.getPostById(it) }
 
@@ -174,7 +175,7 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
 
         composable(Screen.Map.route) {
             MapScreen(
-                mainViewModel = mainViewModelOwner(),
+                mainViewModel = mainViewModelOwner(it),
                 onBackClicked = { navController.popBackStack() }
             )
         }
