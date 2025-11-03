@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,10 +20,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.OfferApp.R
 
 @Composable
@@ -45,7 +43,7 @@ fun Header(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding(),
-        color = Color(0xFFD32F2F),
+        color = MaterialTheme.colorScheme.primary,
         shadowElevation = 4.dp
     ) {
         Row(
@@ -54,13 +52,15 @@ fun Header(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val iconTint = MaterialTheme.colorScheme.onPrimary
+
             if (onMenuClick != null) {
                 IconButton(onClick = onMenuClick) {
-                    Icon(Icons.Default.Menu, contentDescription = "Menú", tint = Color.White)
+                    Icon(Icons.Default.Menu, contentDescription = "Menú", tint = iconTint)
                 }
             } else if (onBackClicked != null) {
                 IconButton(onClick = onBackClicked) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = iconTint)
                 }
             }
 
@@ -94,16 +94,16 @@ fun Header(
                     Icon(
                         Icons.Filled.Person,
                         contentDescription = "Perfil / Cerrar Sesión",
-                        tint = Color.White
+                        tint = iconTint
                     )
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Hola, $username") },
+                        text = { Text("Hola, $username", fontWeight = FontWeight.Bold) },
                         enabled = false,
                         onClick = {}
                     )
-                    HorizontalDivider()
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     DropdownMenuItem(
                         text = { Text("Ver Perfil") },
                         onClick = {
@@ -126,30 +126,23 @@ fun Header(
 
 @Composable
 private fun SearchBar(query: String, onQueryChange: (String) -> Unit, modifier: Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = {
-                Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxHeight()) {
-                    Text("Buscar productos...", color = Color.Gray)
-                }
-            },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Buscar", tint = Color.Gray) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White,
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent,
-            ),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 18.sp, color = Color.Black)
-        )
-    }
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text("Buscar productos...") },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Buscar") },
+        singleLine = true,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surface,
+            focusedBorderColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = MaterialTheme.colorScheme.surface
+        ),
+        textStyle = MaterialTheme.typography.bodyLarge
+    )
 }

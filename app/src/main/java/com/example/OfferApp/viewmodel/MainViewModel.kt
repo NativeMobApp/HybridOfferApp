@@ -52,6 +52,9 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var selectedPostId by mutableStateOf<String?>(null)
         private set
 
+    var isDarkTheme by mutableStateOf<Boolean?>(null)
+        private set
+
     val selectedPost by derivedStateOf {
         selectedPostId?.let { id ->
             allPosts.find { it.id == id }
@@ -95,6 +98,10 @@ class MainViewModel(initialUser: User) : ViewModel() {
                 _myComments.value = comments
             }
         }
+    }
+
+    fun onThemeChange(isDark: Boolean?){
+        isDarkTheme = isDark
     }
 
     fun loadMorePosts() {

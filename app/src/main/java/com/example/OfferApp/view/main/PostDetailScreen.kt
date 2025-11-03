@@ -1,7 +1,10 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.OfferApp.view.main
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.forEachGesture
@@ -14,12 +17,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbDown
@@ -28,13 +38,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -43,7 +56,6 @@ import androidx.preference.PreferenceManager
 import coil.compose.AsyncImage
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.Post
-import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -65,16 +77,16 @@ fun PostDetailScreen(
         mainViewModel.loadComments(post.id)
     }
 
+    // Use a custom top bar for more control
     Scaffold(
         topBar = {
-            Header(
-                username = mainViewModel.user.username,
-                query = mainViewModel.searchQuery,
-                onQueryChange = { mainViewModel.onSearchQueryChange(it) },
-                onBackClicked = onBackClicked,
-                onSesionClicked = onLogoutClicked,
-                onProfileClick = { onProfileClick(mainViewModel.user.uid) },
-                onLogoClick = onBackClicked
+            TopAppBar(
+                title = { Text(post.description, maxLines = 1) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClicked) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -82,7 +94,8 @@ fun PostDetailScreen(
             mainViewModel = mainViewModel,
             post = post,
             modifier = Modifier.padding(paddingValues),
-            onProfileClick = onProfileClick
+            onProfileClick = onProfileClick,
+            onBackClicked = onBackClicked
         )
     }
 }
@@ -92,7 +105,8 @@ fun PostDetailContent(
     mainViewModel: MainViewModel,
     post: Post,
     modifier: Modifier = Modifier,
-    onProfileClick: (String) -> Unit
+    onProfileClick: (String) -> Unit,
+    onBackClicked: () -> Unit
 ) {
     val comments by mainViewModel.comments.collectAsState()
     var newCommentText by remember { mutableStateOf("") }
@@ -111,6 +125,7 @@ fun PostDetailContent(
                 Button(onClick = {
                     mainViewModel.deletePost(post.id)
                     showDialog = false
+                    onBackClicked() // Go back after deleting
                 }) { Text("Eliminar") }
             },
             dismissButton = {
@@ -120,7 +135,10 @@ fun PostDetailContent(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTabIndex) {
+        TabRow(
+            selectedTabIndex = selectedTabIndex,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
             tabTitles.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTabIndex == index,
@@ -136,11 +154,10 @@ fun PostDetailContent(
                 .weight(1f)
                 .verticalScroll(scrollState, enabled = !isMapTouched.value)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(400.dp)
+                    .height(350.dp)
                     .zIndex(-1f)
             ) {
                 when (selectedTabIndex) {
@@ -158,10 +175,13 @@ fun PostDetailContent(
                 }
             }
 
+            // Content Section
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
                 PostInfoSection(mainViewModel, post, onProfileClick) { showDialog = true }
 
-                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Comments Section
                 Text(
                     "Comentarios",
                     style = MaterialTheme.typography.headlineSmall,
@@ -173,19 +193,23 @@ fun PostDetailContent(
                         Text(
                             "Aún no hay comentarios. ¡Sé el primero!",
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 16.dp)
+                            modifier = Modifier
+                                .padding(vertical = 16.dp)
+                                .fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
                     } else {
                         comments.forEach { comment ->
                             CommentItem(comment, onProfileClick)
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
 
+        // Add Comment text field is always at the bottom
         if (!currentUserIsAuthor) {
             AddCommentSection(
                 value = newCommentText,
@@ -269,114 +293,143 @@ private fun PostInfoSection(
     onDeleteClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
+    val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     val currentUserIsAuthor = mainViewModel.user.uid == post.user?.uid
     val score = post.scores.sumOf { it.value }
     val scoreColor = when {
-        score > 0 -> Color.Green
-        score < 0 -> Color.Red
-        else -> LocalContentColor.current
+        score > 0 -> Color(0xFF4CAF50)
+        score < 0 -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     }
     val userVote = post.scores.find { it.userId == mainViewModel.user.uid }?.value
-    val likeColor = if (userVote == 1) Color.Green else LocalContentColor.current
-    val dislikeColor = if (userVote == -1) Color.Red else LocalContentColor.current
     val isFavorite = mainViewModel.user.favorites.contains(post.id)
-    val favoriteColor = if (isFavorite) Color.Yellow else LocalContentColor.current
+    val favoriteColor = if (isFavorite) Color(0xFFFFC107) else Color.Gray
 
-    Column(
-        modifier = Modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = post.description, style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "$${post.price}",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (post.category.isNotBlank()) {
-            Text(text = "Categoría: ${post.category}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-
-        Text(text = "Ubicación: ${post.location}", style = MaterialTheme.typography.bodyMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-
+    Column(modifier = Modifier.padding(16.dp)) {
+        // Author Info
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { post.user?.uid?.let { onProfileClick(it) } }
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+                .clickable { post.user?.uid?.let { onProfileClick(it) } },
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Publicado por: ",
-                style = MaterialTheme.typography.bodySmall
+            AsyncImage(
+                model = post.user?.profileImageUrl?.replace("http://", "https://"),
+                contentDescription = "Author profile image",
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, Color.Gray, CircleShape),
+                contentScale = ContentScale.Crop
             )
-            Text(
-                text = post.user?.username ?: "Usuario desconocido",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = post.user?.username ?: "Usuario desconocido",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                post.timestamp?.let {
+                    Text(
+                        text = "Publicado el ${sdf.format(it)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
         }
 
-        post.timestamp?.let {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "El: ${sdf.format(it)}", style = MaterialTheme.typography.bodySmall)
-        }
+        HorizontalDivider()
 
-        Spacer(modifier = Modifier.height(16.dp))
-
+        // Post Details
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.padding(top = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = { mainViewModel.updatePostScore(post.id, 1) }, enabled = !currentUserIsAuthor) {
-                Icon(Icons.Default.ThumbUp, contentDescription = "Like", tint = likeColor)
+            // Left Column (Description, Category, Location)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = post.description,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Normal
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                InfoRow(icon = Icons.Default.Category, text = post.category)
+                Spacer(modifier = Modifier.height(8.dp))
+                InfoRow(icon = Icons.Default.LocationOn, text = post.location)
             }
-            Text(
-                text = "$score",
-                color = scoreColor,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            IconButton(onClick = { mainViewModel.updatePostScore(post.id, -1) }, enabled = !currentUserIsAuthor) {
-                Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = dislikeColor)
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Right Column (Price and Score)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.height(100.dp)
+            ) {
+                Text(
+                    text = "$${String.format("%.2f", post.price)}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.End
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$score",
+                        color = scoreColor,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        Icons.Default.Star, contentDescription = "Score",
+                        tint = scoreColor, modifier = Modifier.size(24.dp)
+                    )
+                }
             }
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Action Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Vote Buttons
+            OutlinedButton(onClick = { mainViewModel.updatePostScore(post.id, 1) }, enabled = !currentUserIsAuthor) {
+                Icon(Icons.Default.ThumbUp, contentDescription = "Like", tint = if (userVote == 1) Color(0xFF4CAF50) else Color.Gray)
+            }
+            OutlinedButton(onClick = { mainViewModel.updatePostScore(post.id, -1) }, enabled = !currentUserIsAuthor) {
+                Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = if (userVote == -1) MaterialTheme.colorScheme.error else Color.Gray)
+            }
+
+            // Favorite and Share
+            OutlinedButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
                 Icon(Icons.Default.Star, contentDescription = "Favorite", tint = favoriteColor)
             }
-            IconButton(onClick = {
-                val shareText = """
-                    ¡Mira esta oferta en OfferApp!
-                    
-                    ${post.description}
-                    Precio: $${post.price}
-                    Ubicación: ${post.location}
-                    
-                    ${post.imageUrl}
-                    
-                    ¡Descárgate OfferApp y no te pierdas ninguna oferta!
-                """.trimIndent()
 
+            OutlinedButton(onClick = {
+                val shareText = "¡Mira esta oferta en OfferApp!\n\n${post.description} por solo $${post.price}\n\n${post.imageUrl}"
                 val sendIntent: Intent = Intent().apply {
                     action = Intent.ACTION_SEND
                     putExtra(Intent.EXTRA_TEXT, shareText)
                     type = "text/plain"
                 }
-                val shareIntent = Intent.createChooser(sendIntent, null)
-                context.startActivity(shareIntent)
+                context.startActivity(Intent.createChooser(sendIntent, null))
             }) {
                 Icon(Icons.Default.Share, contentDescription = "Compartir")
             }
 
+            // Delete Button
             if (currentUserIsAuthor) {
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar post", tint = Color.Red)
+                OutlinedButton(onClick = onDeleteClick, colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar post")
                 }
             }
         }
@@ -384,22 +437,69 @@ private fun PostInfoSection(
 }
 
 @Composable
+private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+@Composable
 private fun CommentItem(comment: Comment, onProfileClick: (String) -> Unit) {
-    val sdf = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = comment.user?.username ?: "Anónimo",
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { comment.user?.uid?.let { onProfileClick(it) } }
+    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            AsyncImage(
+                model = comment.user?.profileImageUrl?.replace("http://", "https://"),
+                contentDescription = "Comment author profile image",
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray)
+                    .clickable { comment.user?.uid?.let { onProfileClick(it) } },
+                contentScale = ContentScale.Crop
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            comment.timestamp?.let {
-                Text(text = sdf.format(it), style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = comment.user?.username ?: "Anónimo",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { comment.user?.uid?.let { onProfileClick(it) } }
+                    )
+                }
+                comment.timestamp?.let {
+                    Text(
+                        text = sdf.format(it),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = comment.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Normal
+                )
             }
         }
-        Text(text = comment.text)
     }
 }
 
@@ -409,15 +509,28 @@ private fun AddCommentSection(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit
 ) {
-    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = { Text("Añadir un comentario...") },
-            modifier = Modifier.weight(1f)
-        )
-        IconButton(onClick = onSend, enabled = value.isNotBlank()) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario")
+    Surface(shadowElevation = 4.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text("Añadir un comentario...") },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = onSend,
+                enabled = value.isNotBlank(),
+                modifier = Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar comentario", tint = MaterialTheme.colorScheme.onPrimary)
+            }
         }
     }
 }

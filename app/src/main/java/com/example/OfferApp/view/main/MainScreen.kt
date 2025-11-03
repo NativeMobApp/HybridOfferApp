@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -64,6 +66,8 @@ fun MainScreen(
         "Animales", "Electrodomésticos", "Servicios", "Educación",
         "Juguetes", "Vehículos", "Otros"
     )
+    val themeOptions = listOf("Claro", "Oscuro", "Automático")
+
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -75,30 +79,71 @@ fun MainScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFD32F2F))
+                            .background(MaterialTheme.colorScheme.primary)
                             .padding(vertical = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Categorías",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    HorizontalDivider(color = Color.LightGray)
-                    categories.forEach { category ->
-                        Text(
-                            text = category,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    mainViewModel.filterByCategory(category)
-                                    scope.launch { drawerState.close() }
-                                }
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                    LazyColumn {
+                        items(categories) { category ->
+                            val isSelected = mainViewModel.selectedCategory == category
+                            Text(
+                                text = category,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        mainViewModel.filterByCategory(category)
+                                        scope.launch { drawerState.close() }
+                                    }
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+
+                        item {
+                            HorizontalDivider(color = Color.LightGray, modifier = Modifier.padding(vertical = 8.dp))
+                            Text(
+                                text = "Tema",
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        items(themeOptions) { theme ->
+                            val isSelected = when (theme) {
+                                "Claro" -> mainViewModel.isDarkTheme == false
+                                "Oscuro" -> mainViewModel.isDarkTheme == true
+                                "Automático" -> mainViewModel.isDarkTheme == null
+                                else -> false
+                            }
+
+                            Text(
+                                text = theme,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        when (theme) {
+                                            "Claro" -> mainViewModel.onThemeChange(false)
+                                            "Oscuro" -> mainViewModel.onThemeChange(true)
+                                            "Automático" -> mainViewModel.onThemeChange(null)
+                                        }
+                                        scope.launch { drawerState.close() }
+                                    }
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 }
             }
@@ -124,14 +169,16 @@ fun MainScreen(
                 Column {
                     FloatingActionButton(
                         onClick = onNavigateToCreatePost,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        containerColor = MaterialTheme.colorScheme.primary
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Crear Post")
+                        Icon(Icons.Default.Add, contentDescription = "Crear Post", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                     FloatingActionButton(
-                        onClick = onNavigateToMap
+                        onClick = onNavigateToMap,
+                        containerColor = MaterialTheme.colorScheme.primary
                     ) {
-                        Icon(Icons.Default.LocationOn, contentDescription = "Ver en mapa")
+                        Icon(Icons.Default.LocationOn, contentDescription = "Ver en mapa", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             }
@@ -251,7 +298,8 @@ fun LandscapeLayout(mainViewModel: MainViewModel, onProfileClick: (String) -> Un
                 PostDetailContent(
                     mainViewModel = mainViewModel,
                     post = selectedPost,
-                    onProfileClick = onProfileClick
+                    onProfileClick = onProfileClick,
+                    onBackClicked = { mainViewModel.selectPost("") }
                 )
             } else {
                 Text("Selecciona un post para ver su detalle", style = MaterialTheme.typography.bodyLarge)

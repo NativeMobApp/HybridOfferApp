@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.ThumbDown
-import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,71 +30,83 @@ import com.example.OfferApp.viewmodel.MainViewModel
 
 @Composable
 fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
-    val currentUserIsAuthor = mainViewModel.user.uid == post.user?.uid
+    val isFavorite = mainViewModel.user.favorites.contains(post.id)
+    val favoriteColor = if (isFavorite) Color(0xFFFFC107) else Color.Gray
+
     val score = post.scores.sumOf { it.value }
     val scoreColor = when {
-        score > 0 -> Color.Green
-        score < 0 -> Color.Red
-        else -> LocalContentColor.current
+        score > 0 -> Color(0xFF4CAF50) // A nice green color
+        score < 0 -> MaterialTheme.colorScheme.error // Use the app''s error color for negative scores
+        else -> Color.Gray
     }
-
-    val userVote = post.scores.find { it.userId == mainViewModel.user.uid }?.value
-    val likeColor = if (userVote == 1) Color.Green else LocalContentColor.current
-    val dislikeColor = if (userVote == -1) Color.Red else LocalContentColor.current
-
-    val isFavorite = mainViewModel.user.favorites.contains(post.id)
-    val favoriteColor = if (isFavorite) Color.Yellow else LocalContentColor.current
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
-            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+        )
     ) {
-        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             AsyncImage(
                 model = post.imageUrl.replace("http://", "https://"),
                 contentDescription = "Post image",
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier.size(88.dp),
                 contentScale = ContentScale.Crop
             )
-            Spacer(modifier = Modifier.width(8.dp))
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = post.description,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2
                 )
+
                 Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
-                    text = "$${post.price}",
+                    text = post.location,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "$${String.format("%.2f", post.price)}",
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Ubicación: ${post.location}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Publicado por: ${post.user?.username ?: "Usuario desconocido"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                IconButton(onClick = { mainViewModel.updatePostScore(post.id, 1) }, enabled = !currentUserIsAuthor) {
-                    Icon(Icons.Default.ThumbUp, contentDescription = "Like", tint = likeColor)
+
+            // Column for Score and Favorite button
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text(
+                    text = "$score",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = scoreColor
+                )
+                IconButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = "Favorite",
+                        tint = favoriteColor,
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
-                Text(text = "$score", color = scoreColor, fontWeight = FontWeight.Bold)
-                IconButton(onClick = { mainViewModel.updatePostScore(post.id, -1) }, enabled = !currentUserIsAuthor) {
-                    Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = dislikeColor)
-                }
-            }
-            IconButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
-                Icon(Icons.Default.Star, contentDescription = "Favorite", tint = favoriteColor)
             }
         }
     }
