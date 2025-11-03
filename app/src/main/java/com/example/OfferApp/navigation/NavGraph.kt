@@ -139,9 +139,13 @@ fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
         }
 
         composable(Screen.CreatePost.route) {
+            val mainViewModel = mainViewModelOwner(it)
             CreatePostScreen(
-                mainViewModel = mainViewModelOwner(it),
-                onPostCreated = { navController.popBackStack() }
+                mainViewModel = mainViewModel,
+                onPostCreated = {
+                    mainViewModel.refreshPosts()
+                    navController.popBackStack()
+                }
             )
         }
 

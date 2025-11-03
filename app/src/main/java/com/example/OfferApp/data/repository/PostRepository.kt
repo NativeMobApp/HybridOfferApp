@@ -7,6 +7,7 @@ import com.cloudinary.android.callback.UploadCallback
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.Post
 import com.example.OfferApp.domain.entities.Score
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
@@ -142,21 +143,23 @@ class PostRepository {
         }
     }
 
-    fun getPosts(): Flow<List<Post>> {
-        return callbackFlow {
-            val listener = postsCollection
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        close(e)
-                        return@addSnapshotListener
-                    }
-                    if (snapshot != null) {
-                        val posts = snapshot.toObjects(Post::class.java)
-                        trySend(posts).isSuccess
-                    }
-                }
-            awaitClose { listener.remove() }
+    suspend fun getPosts(lastVisiblePost: DocumentSnapshot? = null): Pair<List<Post>, DocumentSnapshot?> {
+        val limit = 3L
+        val query = postsCollection
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(limit)
+
+        val finalQuery = if (lastVisiblePost != null) {
+            query.startAfter(lastVisiblePost)
+        } else {
+            query
         }
+
+        val snapshot = finalQuery.get().await()
+        val posts = snapshot.toObjects(Post::class.java)
+        val newLastVisible = snapshot.documents.lastOrNull()
+
+        return Pair(posts, newLastVisible)
     }
 
     suspend fun deletePost(postId: String): Result<Unit> {
@@ -178,7 +181,6 @@ class PostRepository {
     suspend fun deleteExpiredPosts(): Result<Unit> {
         return try {
             val thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000L
-            //val thirtyDaysInMillis = 60 * 1000L
             val cutoffDate = Date(System.currentTimeMillis() - thirtyDaysInMillis)
 
             val querySnapshot = postsCollection

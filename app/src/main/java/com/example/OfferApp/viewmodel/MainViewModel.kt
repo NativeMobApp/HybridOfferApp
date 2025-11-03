@@ -12,7 +12,9 @@ import com.example.OfferApp.data.repository.AuthRepository
 import com.example.OfferApp.data.repository.PostRepository
 import com.example.OfferApp.domain.entities.Comment
 import com.example.OfferApp.domain.entities.Post
+import com.example.OfferApp.domain.entities.Score
 import com.example.OfferApp.domain.entities.User
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,11 +44,14 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var selectedFeedTab by mutableStateOf(0)
         private set
 
-    // <-- CAMBIO: ID del post seleccionado para la vista detalle en horizontal
+    private var lastVisiblePost by mutableStateOf<DocumentSnapshot?>(null)
+    var isLoading by mutableStateOf(false)
+        private set
+    private var allPostsLoaded by mutableStateOf(false)
+
     var selectedPostId by mutableStateOf<String?>(null)
         private set
 
-    // <-- CAMBIO: Post completo derivado del ID seleccionado
     val selectedPost by derivedStateOf {
         selectedPostId?.let { id ->
             originalPosts.find { it.id == id }
@@ -75,12 +80,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
         viewModelScope.launch {
             postRepository.deleteExpiredPosts()
         }
-        viewModelScope.launch {
-            postRepository.getPosts().collect { postList ->
-                originalPosts = postList
-                applyFilters()
-            }
-        }
+        loadMorePosts() // Initial load
         viewModelScope.launch {
             authRepository.getUser(initialUser.uid)?.let { fetchedUser ->
                 this@MainViewModel.user = fetchedUser
@@ -93,10 +93,37 @@ class MainViewModel(initialUser: User) : ViewModel() {
         }
     }
 
-    // <-- CAMBIO: Nueva función para seleccionar/deseleccionar un post
+    fun loadMorePosts() {
+        if (isLoading || allPostsLoaded) return
+
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val (newPosts, newLastVisible) = postRepository.getPosts(lastVisiblePost)
+                if (newPosts.isNotEmpty()) {
+                    originalPosts = originalPosts + newPosts
+                    lastVisiblePost = newLastVisible
+                    applyFilters()
+                } else {
+                    allPostsLoaded = true
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error loading more posts", e)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun refreshPosts() {
+        originalPosts = emptyList()
+        lastVisiblePost = null
+        allPostsLoaded = false
+        loadMorePosts()
+    }
+
     fun selectPost(postId: String?) {
         selectedPostId = postId
-        // Si estamos en modo detalle, cargamos sus comentarios
         if (postId != null) {
             loadComments(postId)
         }
@@ -104,7 +131,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun onFeedTabSelected(tabIndex: Int) {
         selectedFeedTab = tabIndex
-        applyFilters() // Re-aplicar filtros cada vez que se cambia la pestabña
+        applyFilters()
     }
 
     fun loadUserProfile(userId: String) {
@@ -244,8 +271,45 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     fun updatePostScore(postId: String, value: Int) {
+        val postIndex = originalPosts.indexOfFirst { it.id == postId }
+        if (postIndex == -1) return
+
+        val originalPost = originalPosts[postIndex]
+        val userId = user.uid
+
+        val existingScore = originalPost.scores.find { it.userId == userId }
+
+        val newScores = originalPost.scores.toMutableList()
+
+        if (existingScore != null) {
+            // User has voted before, remove their old vote
+            newScores.removeAll { it.userId == userId }
+            if (existingScore.value != value) {
+                // It was a different vote, so add the new one
+                newScores.add(Score(userId, value))
+            }
+            // If it was the same vote, it's a cancellation, so we just remove it
+        } else {
+            // New vote
+            newScores.add(Score(userId, value))
+        }
+
+        val updatedPost = originalPost.copy(scores = newScores)
+
+        // Optimistic UI update
+        originalPosts = originalPosts.toMutableList().also { it[postIndex] = updatedPost }
+        applyFilters()
+
+        // Sync with backend
         viewModelScope.launch {
-            postRepository.updatePostScore(postId, this@MainViewModel.user.uid, value)
+            try {
+                postRepository.updatePostScore(postId, user.uid, value)
+            } catch (e: Exception) {
+                // Rollback on failure
+                originalPosts = originalPosts.toMutableList().also { it[postIndex] = originalPost }
+                applyFilters()
+                Log.e("MainViewModel", "Failed to update post score, rolled back UI.", e)
+            }
         }
     }
 
