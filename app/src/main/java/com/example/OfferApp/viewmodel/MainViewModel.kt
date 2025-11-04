@@ -52,9 +52,6 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var selectedPostId by mutableStateOf<String?>(null)
         private set
 
-    var isDarkTheme by mutableStateOf<Boolean?>(null)
-        private set
-
     val selectedPost by derivedStateOf {
         selectedPostId?.let { id ->
             allPosts.find { it.id == id }
@@ -98,10 +95,6 @@ class MainViewModel(initialUser: User) : ViewModel() {
                 _myComments.value = comments
             }
         }
-    }
-
-    fun onThemeChange(isDark: Boolean?){
-        isDarkTheme = isDark
     }
 
     fun loadMorePosts() {
@@ -418,7 +411,15 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun deletePost(postId: String) {
         viewModelScope.launch {
-            postRepository.deletePost(postId)
+            try {
+                postRepository.deletePost(postId)
+                // On success, update local state
+                allPosts = allPosts.filterNot { it.id == postId }
+                applyFilters() // This updates the 'posts' list which is shown in the UI
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error deleting post", e)
+                // Optionally, handle the error (e.g., show a snackbar)
+            }
         }
     }
 }
