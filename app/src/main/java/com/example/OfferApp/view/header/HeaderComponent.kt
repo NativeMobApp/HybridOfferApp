@@ -3,6 +3,7 @@ package com.example.OfferApp.view.header
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -143,7 +144,7 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit, modifier: 
         singleLine = true,
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .padding(vertical = 4.dp),
         shape = RoundedCornerShape(24.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -152,6 +153,7 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit, modifier: 
             focusedBorderColor = MaterialTheme.colorScheme.surface,
             unfocusedBorderColor = MaterialTheme.colorScheme.surface
         ),
-        textStyle = MaterialTheme.typography.bodyLarge
+        textStyle = MaterialTheme.typography.bodyLarge,
+
     )
 }
