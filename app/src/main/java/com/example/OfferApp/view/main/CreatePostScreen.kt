@@ -3,6 +3,7 @@ package com.example.OfferApp.view.main
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +31,7 @@ import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,10 +58,47 @@ fun CreatePostScreen(
         "Animales", "Electrodomésticos", "Servicios", "Educación",
         "Juguetes", "Vehículos", "Otros"
     )
-
+    var product by remember { mutableStateOf("") }
+    var store by remember { mutableStateOf("") }
+    var brand by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    val promotionTypes = listOf(
+        "2x1","3x1","3x2","25% OFF","30% OFF","50% OFF","Liquidación", "Otros"
+    )
+    var selectedPromotionType by remember { mutableStateOf("") }
+    var expandedPromotion by remember { mutableStateOf(false) }
+    var otherPromotion by remember { mutableStateOf("") }
+    val finalPromotionType = if (selectedPromotionType == "Otros") otherPromotion else selectedPromotionType
+
+    val autoDescription by remember(product, brand, finalPromotionType) {
+        derivedStateOf {
+
+            val promotionDetail = if (finalPromotionType.isNotBlank()) "$finalPromotionType" else ""
+
+            val productText = if (product.isNotBlank()) product else ""
+
+            val brandText = if (brand.isNotBlank()) "de $brand" else ""
+
+
+            if (finalPromotionType.isNotBlank() || product.isNotBlank() || brand.isNotBlank()) {
+
+                "$promotionDetail en $productText $brandText".trim()
+                    .replace(Regex("\\s+"), " ")
+            } else {
+                ""
+            }
+        }
+    }
+
+    description = autoDescription
+
+    LaunchedEffect(latitude, longitude) {
+        if (latitude != 0.0 && longitude != 0.0) {
+            location = getCityName(context, latitude, longitude) ?: "Ubicación Desconocida"
+        }
+    }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted: Boolean ->
@@ -113,24 +152,106 @@ fun CreatePostScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Descripción",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                )
+                            ) {
+                                Text(
+                                    text = description,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                    ExposedDropdownMenuBox(
+                        expanded = expandedPromotion,
+                        onExpandedChange = { expandedPromotion = !expandedPromotion }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedPromotionType,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Tipo de Promoción") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedPromotion) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            colors = OutlinedTextFieldDefaults.colors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedPromotion,
+                            onDismissRequest = { expandedPromotion = false }
+                        ) {
+                            promotionTypes.forEach { promotion ->
+                                DropdownMenuItem(
+                                    text = { Text(promotion) },
+                                    onClick = {
+                                        selectedPromotionType = promotion
+                                        expandedPromotion = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (selectedPromotionType == "Otros") {
+                        OutlinedTextField(
+                            value = otherPromotion,
+                            onValueChange = { otherPromotion = it },
+                            label = { Text("Especifique la Promoción") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading,
+                            colors = OutlinedTextFieldDefaults.colors()
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                     OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text("Descripción") },
+                        value = product,
+                        onValueChange = { product = it },
+                        label = { Text("Producto") },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
                         colors = OutlinedTextFieldDefaults.colors()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
+
                     OutlinedTextField(
+                        value = brand,
+                        onValueChange = { brand = it },
+                        label = { Text("Marca") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = store,
+                        onValueChange = { store = it },
+                        label = { Text("Comercio (Tienda)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        colors = OutlinedTextFieldDefaults.colors()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                   /* OutlinedTextField(
                         value = location,
-                        onValueChange = { location = it },
+                        onValueChange = { /*location = it*/ },
+                        readOnly=true,
                         label = { Text("Ubicación") },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
                         colors = OutlinedTextFieldDefaults.colors()
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))*/
                     OutlinedTextField(
                         value = price,
                         onValueChange = { price = it },
@@ -213,6 +334,20 @@ private fun getCurrentLocation(context: Context, callback: (Double, Double) -> U
             }
         }
     } catch (e: SecurityException) {
-        // Handle exception
+
+    }
+}
+private fun getCityName(context: Context, latitude: Double, longitude: Double): String? {
+    return try {
+        val geocoder = Geocoder(context, Locale.getDefault())
+        val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+
+
+        addresses?.firstOrNull()?.let { address ->
+            address.subLocality ?: address.locality ?: address.subAdminArea ?: address.adminArea
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
     }
 }
