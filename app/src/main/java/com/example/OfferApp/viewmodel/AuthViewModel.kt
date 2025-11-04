@@ -2,47 +2,41 @@ package com.example.OfferApp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.OfferApp.data.SessionManager
 import com.example.OfferApp.data.repository.AuthRepository
 import com.example.OfferApp.domain.entities.User
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 sealed class AuthState {
     object Idle : AuthState()
     object Loading : AuthState()
     data class Success(val user: User) : AuthState()
-    data class PasswordResetSuccess(val message: String) : AuthState()
     data class Error(val message: String) : AuthState()
-    data class FollowSuccess(val message: String) : AuthState()
-    data class UnfollowSuccess(val message: String) : AuthState()
+    data class PasswordResetSuccess(val message: String) : AuthState() // Added this state
 }
 
 class AuthViewModel(
-    private val repository: AuthRepository = AuthRepository()
+    private val repository: AuthRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<AuthState>(AuthState.Idle)
     val state = _state.asStateFlow()
 
-    fun register(email: String, password: String, username: String) {
+    val isLoggedIn = sessionManager.isLoggedInFlow
+
+    init {
         viewModelScope.launch {
-            _state.value = AuthState.Loading
-            repository.registerUser(email, password, username).onSuccess { firebaseUser ->
-                val uid = firebaseUser?.uid
-                if (uid == null) {
-                    _state.value = AuthState.Error("Error de registro: no se pudo obtener el ID de usuario.")
-                    return@launch
-                }
-                // Fetch the full user profile from Firestore
-                val user = repository.getUser(uid)
+            if (sessionManager.isLoggedInFlow.first()) {
+                val user = repository.currentUser?.uid?.let { repository.getUser(it) }
                 if (user != null) {
                     _state.value = AuthState.Success(user)
                 } else {
-                    _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
+                    sessionManager.clearSession()
                 }
-            }.onFailure {
-                _state.value = AuthState.Error(it.message ?: "Error al registrar")
             }
         }
     }
@@ -51,14 +45,9 @@ class AuthViewModel(
         viewModelScope.launch {
             _state.value = AuthState.Loading
             repository.loginUser(identifier, password).onSuccess { firebaseUser ->
-                val uid = firebaseUser?.uid
-                if (uid == null) {
-                    _state.value = AuthState.Error("Error de inicio de sesión: no se pudo obtener el ID de usuario.")
-                    return@launch
-                }
-                // After logging in, fetch the full user profile from Firestore
-                val user = repository.getUser(uid)
+                val user = repository.getUser(firebaseUser!!.uid)
                 if (user != null) {
+                    sessionManager.saveSessionState(true)
                     _state.value = AuthState.Success(user)
                 } else {
                     _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
@@ -69,41 +58,43 @@ class AuthViewModel(
         }
     }
 
+    fun register(email: String, password: String, username: String) {
+        viewModelScope.launch {
+            _state.value = AuthState.Loading
+            repository.registerUser(email, password, username).onSuccess { firebaseUser ->
+                val user = repository.getUser(firebaseUser!!.uid)
+                if (user != null) {
+                    sessionManager.saveSessionState(true)
+                    _state.value = AuthState.Success(user)
+                } else {
+                    _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
+                }
+            }.onFailure {
+                _state.value = AuthState.Error(it.message ?: "Error al registrar")
+            }
+        }
+    }
+
     fun resetPassword(email: String) {
         viewModelScope.launch {
             _state.value = AuthState.Loading
             repository.resetPassword(email).onSuccess {
-                _state.value = AuthState.PasswordResetSuccess("Se envió un mail a $email")
+                _state.value = AuthState.PasswordResetSuccess("Se ha enviado un correo para restablecer tu contraseña.")
             }.onFailure {
-                _state.value = AuthState.Error(it.message ?: "Error al enviar mail")
+                _state.value = AuthState.Error(it.message ?: "Error al restablecer la contraseña")
             }
         }
     }
 
-    fun logout() {
-        repository.logout()
+    fun resetAuthState() {
         _state.value = AuthState.Idle
     }
 
-    fun followUser(followerId: String, followingId: String) {
+    fun logout() {
         viewModelScope.launch {
-            _state.value = AuthState.Loading
-            repository.followUser(followerId, followingId).onSuccess {
-                _state.value = AuthState.FollowSuccess("Ahora sigues a este usuario.")
-            }.onFailure {
-                _state.value = AuthState.Error(it.message ?: "Error al seguir al usuario.")
-            }
-        }
-    }
-
-    fun unfollowUser(followerId: String, followingId: String) {
-        viewModelScope.launch {
-            _state.value = AuthState.Loading
-            repository.unfollowUser(followerId, followingId).onSuccess {
-                _state.value = AuthState.UnfollowSuccess("Has dejado de seguir a este usuario.")
-            }.onFailure {
-                _state.value = AuthState.Error(it.message ?: "Error al dejar de seguir al usuario.")
-            }
+            repository.logout()
+            sessionManager.clearSession()
+            _state.value = AuthState.Idle
         }
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,13 @@ fun ForgotPasswordScreen(
 ) {
     var email by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
+
+    // Reset state when the composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.resetAuthState()
+        }
+    }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) {
         Box(
@@ -112,7 +120,7 @@ fun ForgotPasswordScreen(
                             Button(
                                 onClick = { viewModel.resetPassword(email) },
                                 modifier = Modifier.fillMaxWidth(),
-                                enabled = state !is AuthState.Loading
+                                enabled = state !is AuthState.Loading && email.isNotBlank()
                             ) {
                                 Text("Enviar correo")
                             }

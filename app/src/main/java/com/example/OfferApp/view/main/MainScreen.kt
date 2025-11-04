@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,12 +30,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -48,11 +50,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
+import com.example.OfferApp.viewmodel.ThemeViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(
     mainViewModel: MainViewModel,
+    themeViewModel: ThemeViewModel, // Added ThemeViewModel
     onNavigateToCreatePost: () -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onPostClick: (String) -> Unit,
@@ -66,7 +70,9 @@ fun MainScreen(
         "Animales", "Electrodomésticos", "Servicios", "Educación",
         "Juguetes", "Vehículos", "Otros"
     )
-    val themeOptions = listOf("Claro", "Oscuro", "Automático")
+
+    // Get theme state from ThemeViewModel
+    val isDarkMode by themeViewModel.isDarkMode.collectAsState()
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -84,13 +90,21 @@ fun MainScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Categorías",
+                            text = "Filtros",
                             color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    LazyColumn {
+                    LazyColumn(modifier = Modifier.padding(top=10.dp)) {
+                        item {
+                            Text(
+                                text = "Categorías",
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         items(categories) { category ->
                             val isSelected = mainViewModel.selectedCategory == category
                             Text(
@@ -110,39 +124,23 @@ fun MainScreen(
 
                         item {
                             HorizontalDivider(color = Color.LightGray, modifier = Modifier.padding(vertical = 8.dp))
-                            Text(
-                                text = "Tema",
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        items(themeOptions) { theme ->
-                            val isSelected = when (theme) {
-                                "Claro" -> mainViewModel.isDarkTheme == false
-                                "Oscuro" -> mainViewModel.isDarkTheme == true
-                                "Automático" -> mainViewModel.isDarkTheme == null
-                                else -> false
-                            }
-
-                            Text(
-                                text = theme,
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        when (theme) {
-                                            "Claro" -> mainViewModel.onThemeChange(false)
-                                            "Oscuro" -> mainViewModel.onThemeChange(true)
-                                            "Automático" -> mainViewModel.onThemeChange(null)
-                                        }
-                                        scope.launch { drawerState.close() }
-                                    }
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
-                                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Modo Oscuro",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Switch(
+                                    checked = isDarkMode ?: false,
+                                    onCheckedChange = { themeViewModel.setTheme(it) }
+                                )
+                            }
                         }
                     }
                 }
