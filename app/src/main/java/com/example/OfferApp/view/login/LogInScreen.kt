@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.OfferApp.R
 import com.example.OfferApp.navigation.Screen
+import com.example.OfferApp.view.components.TemporaryMessageCard
 import com.example.OfferApp.viewmodel.AuthViewModel
 import com.example.OfferApp.viewmodel.AuthState
 
@@ -119,7 +121,23 @@ fun LogInScreen(
                         Spacer(Modifier.height(16.dp))
 
                         Button(
-                            onClick = { viewModel.login(identifier, password) },
+                            onClick = {    when {
+                                identifier.isBlank() -> {
+                                    viewModel.setUiError("El correo o nombre de usuario no puede estar vacío.")
+                                }
+                                password.isBlank() -> {
+                                    viewModel.setUiError("La contraseña no puede estar vacía.")
+                                }
+                                password.length < 6 -> {
+                                    viewModel.setUiError("La contraseña debe tener al menos 6 caracteres.")
+                                }
+                                // Solo validar formato si contiene '@'
+                                identifier.contains("@") &&
+                                        !android.util.Patterns.EMAIL_ADDRESS.matcher(identifier).matches() -> {
+                                    viewModel.setUiError("El correo no tiene un formato válido.")
+                                }
+                                else -> viewModel.login(identifier, password)
+                            }},
                             modifier = Modifier.fillMaxWidth(),
                             enabled = state !is AuthState.Loading
                         ) {
@@ -144,14 +162,21 @@ fun LogInScreen(
                     CircularProgressIndicator()
                 }
 
-                if (state is AuthState.Error) {
-                    Text(
-                        text = (state as AuthState.Error).message,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
+                if (state is AuthState.Error) Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                ) {
+                    TemporaryMessageCard(
+                        message = (state as AuthState.Error).message,
+                        backgroundColor = Color(0xFFFFA726),
+                        onDismiss = { viewModel.resetAuthState() },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(16.dp)
                     )
+                }
                 }
             }
         }
     }
-}
+

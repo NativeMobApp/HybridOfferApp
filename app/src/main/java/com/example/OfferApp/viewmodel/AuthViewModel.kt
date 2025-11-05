@@ -97,4 +97,7 @@ class AuthViewModel(
             _state.value = AuthState.Idle
         }
     }
+    fun setUiError(message: String) {
+        _state.value = AuthState.Error(message)
+    }
 }

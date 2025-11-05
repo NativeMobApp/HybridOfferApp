@@ -4,6 +4,7 @@ import android.net.Uri
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import com.example.OfferApp.data.firebase.FirebaseAuthErrorHandler
 import com.example.OfferApp.domain.entities.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -40,7 +41,8 @@ class AuthRepository(
 
             Result.success(firebaseUser)
         } catch (e: Exception) {
-            Result.failure(e)
+            val message = FirebaseAuthErrorHandler.getErrorMessage(e)
+            Result.failure(Exception(message))
         }
     }
 
@@ -59,7 +61,8 @@ class AuthRepository(
             val result = auth.signInWithEmailAndPassword(email, password).await()
             Result.success(result.user)
         } catch (e: Exception) {
-            Result.failure(e)
+            val message = FirebaseAuthErrorHandler.getErrorMessage(e)
+            Result.failure(Exception(message))
         }
     }
 

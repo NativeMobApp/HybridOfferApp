@@ -1,5 +1,6 @@
 package com.example.OfferApp.view.register
 
+import android.util.Patterns
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -33,11 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.OfferApp.R
+import com.example.OfferApp.view.components.TemporaryMessageCard
 import com.example.OfferApp.viewmodel.AuthViewModel
 import com.example.OfferApp.viewmodel.AuthState
 
@@ -126,7 +129,15 @@ fun RegisterScreen(
                         Spacer(Modifier.height(16.dp))
 
                         Button(
-                            onClick = { viewModel.register(email, password, username) },
+                            onClick = { /*viewModel.register(email, password, username)*/ when {
+                                email.isBlank() -> viewModel.setUiError("El correo no puede estar vacío.")
+                                !Patterns.EMAIL_ADDRESS.matcher(email).matches() ->
+                                    viewModel.setUiError("El correo no tiene un formato válido.")
+                                username.isBlank() -> viewModel.setUiError("El nombre de usuario no puede estar vacío.")
+                                password.length < 6 -> viewModel.setUiError("La contraseña debe tener al menos 6 caracteres.")
+                                else -> viewModel.register(email, password, username)
+                            }
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = state !is AuthState.Loading
                         ) {
@@ -147,14 +158,28 @@ fun RegisterScreen(
                     CircularProgressIndicator()
                 }
 
-                if (state is AuthState.Error) {
+                if (state is AuthState.Error)
+                    Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                ) {
+                    TemporaryMessageCard(
+                        message = (state as AuthState.Error).message,
+                        backgroundColor = Color(0xFFFFA726),
+                        onDismiss = { viewModel.resetAuthState() },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(16.dp)
+                    )
+                }
+                    /*
                     Text(
                         text = (state as AuthState.Error).message,
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center
-                    )
+                    )*/
                 }
             }
         }
     }
-}
+

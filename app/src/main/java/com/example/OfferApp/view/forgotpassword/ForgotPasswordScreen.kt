@@ -33,10 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.OfferApp.R
+import com.example.OfferApp.view.components.TemporaryMessageCard
 import com.example.OfferApp.viewmodel.AuthViewModel
 import com.example.OfferApp.viewmodel.AuthState
 
@@ -152,11 +154,16 @@ fun ForgotPasswordScreen(
                     }
 
                     if (state is AuthState.Error) {
-                        Text(
-                            text = (state as AuthState.Error).message,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
-                        )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            TemporaryMessageCard(
+                                message = (state as AuthState.Error).message,
+                                backgroundColor = Color(0xFFFFA726), // Naranja suave
+                                onDismiss = { viewModel.resetAuthState() },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(16.dp)
+                            )
+                        }
                     }
                 }
             }
