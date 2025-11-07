@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.OfferApp.domain.entities.Post
@@ -127,12 +128,22 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text(
-                    text = "$${String.format("%.2f", post.price)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$${String.format("%.2f", post.price)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.Gray,
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "$${String.format("%.2f", post.discountPrice)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             // Column for Score and Favorite button

@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
@@ -44,7 +46,8 @@ fun CreatePostScreen(
 ) {
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
+    var originalPrice by remember { mutableStateOf("") }
+    var finalPrice by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var showCamera by remember { mutableStateOf(false) }
     var latitude by remember { mutableStateOf(0.0) }
@@ -52,6 +55,7 @@ fun CreatePostScreen(
     var isLoading by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
+    var lastEditedField by remember { mutableStateOf<String?>(null) }
 
     val categories = listOf(
         "Alimentos", "Tecnología", "Moda", "Deportes", "Construcción",
@@ -65,7 +69,7 @@ fun CreatePostScreen(
     val context = LocalContext.current
 
     val promotionTypes = listOf(
-        "2x1","3x1","3x2","25% OFF","30% OFF","50% OFF","Liquidación", "Otros"
+        "2x1", "3x1", "3x2", "25% OFF", "30% OFF", "50% OFF", "Liquidación", "Otros"
     )
     var selectedPromotionType by remember { mutableStateOf("") }
     var expandedPromotion by remember { mutableStateOf(false) }
@@ -74,31 +78,65 @@ fun CreatePostScreen(
 
     val autoDescription by remember(product, brand, finalPromotionType) {
         derivedStateOf {
-
             val promotionDetail = if (finalPromotionType.isNotBlank()) "$finalPromotionType" else ""
-
             val productText = if (product.isNotBlank()) product else ""
-
             val brandText = if (brand.isNotBlank()) "de $brand" else ""
 
-
             if (finalPromotionType.isNotBlank() || product.isNotBlank() || brand.isNotBlank()) {
-
-                "$promotionDetail en $productText $brandText".trim()
-                    .replace(Regex("\\s+"), " ")
+                "$promotionDetail en $productText $brandText".trim().replace(Regex("\\s+"), " ")
             } else {
                 ""
             }
         }
     }
-
     description = autoDescription
+
+    LaunchedEffect(originalPrice, selectedPromotionType) {
+        if (lastEditedField == "original" && selectedPromotionType != "Liquidación" && selectedPromotionType != "Otros") {
+            val priceDouble = originalPrice.toDoubleOrNull()
+            if (priceDouble != null) {
+                val newFinalPrice = when (selectedPromotionType) {
+                    "2x1" -> priceDouble / 2
+                    "3x1" -> priceDouble / 3
+                    "3x2" -> priceDouble * 2 / 3
+                    "25% OFF" -> priceDouble * 0.75
+                    "30% OFF" -> priceDouble * 0.70
+                    "50% OFF" -> priceDouble * 0.50
+                    else -> null
+                }
+                finalPrice = newFinalPrice?.let { "%.2f".format(it) } ?: ""
+            } else {
+                finalPrice = ""
+            }
+        }
+    }
+
+    LaunchedEffect(finalPrice, selectedPromotionType) {
+        if (lastEditedField == "final" && selectedPromotionType != "Liquidación" && selectedPromotionType != "Otros") {
+            val finalPriceDouble = finalPrice.toDoubleOrNull()
+            if (finalPriceDouble != null) {
+                val newOriginalPrice = when (selectedPromotionType) {
+                    "2x1" -> finalPriceDouble * 2
+                    "3x1" -> finalPriceDouble * 3
+                    "3x2" -> finalPriceDouble * 3 / 2
+                    "25% OFF" -> finalPriceDouble / 0.75
+                    "30% OFF" -> finalPriceDouble / 0.70
+                    "50% OFF" -> finalPriceDouble / 0.50
+                    else -> null
+                }
+                originalPrice = newOriginalPrice?.let { "%.2f".format(it) } ?: ""
+            } else {
+                originalPrice = ""
+            }
+        }
+    }
 
     LaunchedEffect(latitude, longitude) {
         if (latitude != 0.0 && longitude != 0.0) {
             location = getCityName(context, latitude, longitude) ?: "Ubicación Desconocida"
         }
     }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted: Boolean ->
@@ -112,17 +150,17 @@ fun CreatePostScreen(
     )
 
     LaunchedEffect(Unit) {
-        when (PackageManager.PERMISSION_GRANTED) {
-            ContextCompat.checkSelfPermission(
+        if (ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.ACCESS_FINE_LOCATION
-            ) -> {
-                getCurrentLocation(context) { lat, long ->
-                    latitude = lat
-                    longitude = long
-                }
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            getCurrentLocation(context) { lat, long ->
+                latitude = lat
+                longitude = long
             }
-            else -> launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
@@ -196,12 +234,45 @@ fun CreatePostScreen(
                                     onClick = {
                                         selectedPromotionType = promotion
                                         expandedPromotion = false
+                                        // Recalculate based on the last edited field, except for Liquidación and Otros
+                                        if (promotion != "Liquidación" && promotion != "Otros") {
+                                            if (lastEditedField == "final" && finalPrice.isNotBlank()) {
+                                                val finalPriceDouble = finalPrice.toDoubleOrNull()
+                                                if (finalPriceDouble != null) {
+                                                    val newOriginalPrice = when (promotion) {
+                                                        "2x1" -> finalPriceDouble * 2
+                                                        "3x1" -> finalPriceDouble * 3
+                                                        "3x2" -> finalPriceDouble * 3 / 2
+                                                        "25% OFF" -> finalPriceDouble / 0.75
+                                                        "30% OFF" -> finalPriceDouble / 0.70
+                                                        "50% OFF" -> finalPriceDouble / 0.50
+                                                        else -> null
+                                                    }
+                                                    originalPrice = newOriginalPrice?.let { "%.2f".format(it) } ?: ""
+                                                }
+                                            } else if (originalPrice.isNotBlank()) {
+                                                val priceDouble = originalPrice.toDoubleOrNull()
+                                                if (priceDouble != null) {
+                                                    val newFinalPrice = when (promotion) {
+                                                        "2x1" -> priceDouble / 2
+                                                        "3x1" -> priceDouble / 3
+                                                        "3x2" -> priceDouble * 2 / 3
+                                                        "25% OFF" -> priceDouble * 0.75
+                                                        "30% OFF" -> priceDouble * 0.70
+                                                        "50% OFF" -> priceDouble * 0.50
+                                                        else -> null
+                                                    }
+                                                    finalPrice = newFinalPrice?.let { "%.2f".format(it) } ?: ""
+                                                }
+                                            }
+                                        }
                                     }
                                 )
                             }
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
+
                     if (selectedPromotionType == "Otros") {
                         OutlinedTextField(
                             value = otherPromotion,
@@ -213,13 +284,13 @@ fun CreatePostScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
+
                     OutlinedTextField(
                         value = product,
                         onValueChange = { product = it },
                         label = { Text("Producto") },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        colors = OutlinedTextFieldDefaults.colors()
+                        enabled = !isLoading
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -228,8 +299,7 @@ fun CreatePostScreen(
                         onValueChange = { brand = it },
                         label = { Text("Marca") },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        colors = OutlinedTextFieldDefaults.colors()
+                        enabled = !isLoading
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -238,27 +308,33 @@ fun CreatePostScreen(
                         onValueChange = { store = it },
                         label = { Text("Comercio (Tienda)") },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        colors = OutlinedTextFieldDefaults.colors()
+                        enabled = !isLoading
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    /* OutlinedTextField(
-                         value = location,
-                         onValueChange = { /*location = it*/ },
-                         readOnly=true,
-                         label = { Text("Ubicación") },
-                         modifier = Modifier.fillMaxWidth(),
-                         enabled = !isLoading,
-                         colors = OutlinedTextFieldDefaults.colors()
-                     )
-                     Spacer(modifier = Modifier.height(16.dp))*/
+
                     OutlinedTextField(
-                        value = price,
-                        onValueChange = { price = it },
-                        label = { Text("Precio") },
+                        value = originalPrice,
+                        onValueChange = {
+                            originalPrice = it
+                            lastEditedField = "original"
+                        },
+                        label = { Text("Precio Original") },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
-                        colors = OutlinedTextFieldDefaults.colors()
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = finalPrice,
+                        onValueChange = {
+                            finalPrice = it
+                            lastEditedField = "final"
+                        },
+                        label = { Text("Precio Final (con descuento)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -269,8 +345,7 @@ fun CreatePostScreen(
                             readOnly = true,
                             label = { Text("Categoría") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
-                            colors = OutlinedTextFieldDefaults.colors()
+                            modifier = Modifier.fillMaxWidth().menuAnchor()
                         )
                         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             categories.forEach { category ->
@@ -305,7 +380,17 @@ fun CreatePostScreen(
                                 scope.launch {
                                     isLoading = true
                                     val finalStore = if (store.isNotBlank()) store else "desconocido"
-                                    val result = mainViewModel.addPost(description, uri, location, latitude, longitude, selectedCategory, price.toDoubleOrNull() ?: 0.0, finalStore)
+                                    val result = mainViewModel.addPost(
+                                        description = description,
+                                        imageUri = uri,
+                                        location = location,
+                                        latitude = latitude,
+                                        longitude = longitude,
+                                        category = selectedCategory,
+                                        price = originalPrice.toDoubleOrNull() ?: 0.0,
+                                        discountPrice = finalPrice.toDoubleOrNull() ?: 0.0,
+                                        store = finalStore
+                                    )
                                     if (result.isSuccess) {
                                         onPostCreated()
                                     }
@@ -313,7 +398,12 @@ fun CreatePostScreen(
                                 }
                             }
                         },
-                        enabled = imageUri != null && selectedCategory.isNotBlank() && price.isNotBlank() && !isLoading
+                        enabled = imageUri != null &&
+                                selectedCategory.isNotBlank() &&
+                                originalPrice.isNotBlank() &&
+                                finalPrice.isNotBlank() &&
+                                (finalPrice.toDoubleOrNull() ?: 0.0) < (originalPrice.toDoubleOrNull() ?: Double.MAX_VALUE) &&
+                                !isLoading
                     ) {
                         Text("Guardar")
                     }
@@ -335,15 +425,14 @@ private fun getCurrentLocation(context: Context, callback: (Double, Double) -> U
             }
         }
     } catch (e: SecurityException) {
-
+        // Handle exception
     }
 }
+
 private fun getCityName(context: Context, latitude: Double, longitude: Double): String? {
     return try {
         val geocoder = Geocoder(context, Locale.getDefault())
         val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-
-
         addresses?.firstOrNull()?.let { address ->
             address.subLocality ?: address.locality ?: address.subAdminArea ?: address.adminArea
         }

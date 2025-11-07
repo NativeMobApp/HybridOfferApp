@@ -214,11 +214,12 @@ class PostRepository {
         }
     }
 
-    suspend fun updatePostDetails(postId: String, description: String, price: Double, category: String, store: String): Result<Unit> {
+    suspend fun updatePostDetails(postId: String, description: String, price: Double, discountPrice: Double, category: String, store: String): Result<Unit> {
         return try {
             val updates = mapOf(
                 "description" to description,
                 "price" to price,
+                "discountPrice" to discountPrice,
                 "category" to category,
                 "store" to store
             )

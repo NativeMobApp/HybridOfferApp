@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -405,55 +406,60 @@ private fun PostInfoSection(
             }
         }
 
+        // Description
+        Text(
+            text = post.description,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.padding(vertical = 12.dp)
+        )
+
+        // Prices and Score
         Row(
-            modifier = Modifier.padding(top = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = post.description,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Normal
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                InfoRow(icon = Icons.Default.Category, text = post.category)
-                Spacer(modifier = Modifier.height(8.dp))
-                InfoRow(icon = Icons.Default.LocationOn, text = post.location)
-                if (post.store.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    InfoRow(icon = Icons.Default.Store, text = post.store)
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.height(100.dp)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "$${String.format("%.2f", post.price)}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    textDecoration = TextDecoration.LineThrough
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "$${String.format("%.2f", post.discountPrice)}",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.End
+                    color = MaterialTheme.colorScheme.primary
                 )
+            }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "$score",
-                        color = scoreColor,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        Icons.Default.Star, contentDescription = "Score",
-                        tint = scoreColor, modifier = Modifier.size(24.dp)
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "$score",
+                    color = scoreColor,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    Icons.Default.Star, contentDescription = "Score",
+                    tint = scoreColor, modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // Other Info
+        Column(modifier = Modifier.padding(top = 16.dp)) {
+            InfoRow(icon = Icons.Default.Category, text = post.category)
+            Spacer(modifier = Modifier.height(8.dp))
+            InfoRow(icon = Icons.Default.LocationOn, text = post.location)
+            if (post.store.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                InfoRow(icon = Icons.Default.Store, text = post.store)
             }
         }
 
@@ -478,7 +484,7 @@ private fun PostInfoSection(
             }
 
             OutlinedButton(onClick = {
-                val shareText = "¡Mira esta oferta en OfferApp!\n\n${post.description} por solo $${post.price}\n\n${post.imageUrl}"
+                val shareText = "¡Mira esta oferta en OfferApp!\n\n${post.description} por solo $${post.discountPrice}\n\n${post.imageUrl}"
                 val sendIntent: Intent = Intent().apply {
                     action = Intent.ACTION_SEND
                     putExtra(Intent.EXTRA_TEXT, shareText)
@@ -609,6 +615,7 @@ private fun EditPostDialog(
 ) {
     var editedDescription by remember { mutableStateOf(post.description) }
     var editedPrice by remember { mutableStateOf(post.price.toString()) }
+    var editedDiscountPrice by remember { mutableStateOf(post.discountPrice.toString()) }
     var editedCategory by remember { mutableStateOf(post.category) }
     var editedStore by remember { mutableStateOf(post.store) }
     var editedStatus by remember { mutableStateOf(post.status) }
@@ -634,6 +641,11 @@ private fun EditPostDialog(
                     value = editedPrice,
                     onValueChange = { editedPrice = it },
                     label = { Text("Precio") }
+                )
+                OutlinedTextField(
+                    value = editedDiscountPrice,
+                    onValueChange = { editedDiscountPrice = it },
+                    label = { Text("Precio con Descuento") }
                 )
                 OutlinedTextField(
                     value = editedStore,
@@ -684,7 +696,8 @@ private fun EditPostDialog(
         confirmButton = {
             Button(onClick = {
                 val price = editedPrice.toDoubleOrNull() ?: post.price
-                mainViewModel.updatePostDetails(post.id, editedDescription, price, editedCategory, editedStore)
+                val discountPrice = editedDiscountPrice.toDoubleOrNull() ?: post.discountPrice
+                mainViewModel.updatePostDetails(post.id, editedDescription, price, discountPrice, editedCategory, editedStore)
                 mainViewModel.updatePostStatus(post.id, editedStatus)
                 onDismiss()
             }) { Text("Guardar") }

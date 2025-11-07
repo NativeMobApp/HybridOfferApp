@@ -306,7 +306,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
         }
     }
 
-    suspend fun addPost(description: String, imageUri: Uri, location: String, latitude: Double, longitude: Double, category: String, price: Double, store: String): Result<Unit> {
+    suspend fun addPost(description: String, imageUri: Uri, location: String, latitude: Double, longitude: Double, category: String, price: Double, discountPrice: Double, store: String): Result<Unit> {
         val post = Post(
             description = description,
             location = location,
@@ -314,6 +314,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
             longitude = longitude,
             category = category,
             price = price,
+            discountPrice = discountPrice,
             user = this@MainViewModel.user,
             store = store
         )
@@ -441,13 +442,14 @@ class MainViewModel(initialUser: User) : ViewModel() {
         }
     }
 
-    fun updatePostDetails(postId: String, description: String, price: Double, category: String, store: String) {
+    fun updatePostDetails(postId: String, description: String, price: Double, discountPrice: Double, category: String, store: String) {
         val postIndex = allPosts.indexOfFirst { it.id == postId }
         if (postIndex != -1) {
             val originalPost = allPosts[postIndex]
             val updatedPost = originalPost.copy(
                 description = description,
                 price = price,
+                discountPrice = discountPrice,
                 category = category,
                 store = store
             )
@@ -455,7 +457,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
             applyFilters()
 
             viewModelScope.launch {
-                val result = postRepository.updatePostDetails(postId, description, price, category, store)
+                val result = postRepository.updatePostDetails(postId, description, price, discountPrice, category, store)
                 if (result.isFailure) {
                     allPosts = allPosts.toMutableList().also { it[postIndex] = originalPost }
                     applyFilters()

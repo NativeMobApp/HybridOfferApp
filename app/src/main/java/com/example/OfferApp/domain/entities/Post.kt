@@ -15,6 +15,7 @@ data class Post(
     var longitude: Double = 0.0,
     var category: String = "",
     var price: Double = 0.0, // Price field added
+    var discountPrice: Double = 0.0,
     var user: User? = null,
     var scores: List<Score> = emptyList(),
     @ServerTimestamp val timestamp: Date? = null,
