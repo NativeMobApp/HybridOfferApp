@@ -52,6 +52,9 @@ class MainViewModel(initialUser: User) : ViewModel() {
     var selectedPostId by mutableStateOf<String?>(null)
         private set
 
+    var isDarkTheme by mutableStateOf<Boolean?>(null)
+        private set
+
     val selectedPost by derivedStateOf {
         selectedPostId?.let { id ->
             allPosts.find { it.id == id }
@@ -95,6 +98,10 @@ class MainViewModel(initialUser: User) : ViewModel() {
                 _myComments.value = comments
             }
         }
+    }
+
+    fun onThemeChange(isDark: Boolean?){
+        isDarkTheme = isDark
     }
 
     fun loadMorePosts() {
@@ -299,7 +306,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
         }
     }
 
-    suspend fun addPost(description: String, imageUri: Uri, location: String, latitude: Double, longitude: Double, category: String, price: Double): Result<Unit> {
+    suspend fun addPost(description: String, imageUri: Uri, location: String, latitude: Double, longitude: Double, category: String, price: Double, store: String): Result<Unit> {
         val post = Post(
             description = description,
             location = location,
@@ -307,7 +314,8 @@ class MainViewModel(initialUser: User) : ViewModel() {
             longitude = longitude,
             category = category,
             price = price,
-            user = this@MainViewModel.user
+            user = this@MainViewModel.user,
+            store = store
         )
         return postRepository.addPost(post, imageUri)
     }
@@ -411,14 +419,47 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun deletePost(postId: String) {
         viewModelScope.launch {
-            try {
-                postRepository.deletePost(postId)
-                // On success, update local state
-                allPosts = allPosts.filterNot { it.id == postId }
-                applyFilters() // This updates the 'posts' list which is shown in the UI
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Error deleting post", e)
-                // Optionally, handle the error (e.g., show a snackbar)
+            postRepository.deletePost(postId)
+        }
+    }
+
+    fun updatePostStatus(postId: String, newStatus: String) {
+        val postIndex = allPosts.indexOfFirst { it.id == postId }
+        if (postIndex != -1) {
+            val originalPost = allPosts[postIndex]
+            val updatedPost = originalPost.copy(status = newStatus)
+            allPosts = allPosts.toMutableList().also { it[postIndex] = updatedPost }
+            applyFilters()
+
+            viewModelScope.launch {
+                val result = postRepository.updatePostStatus(postId, newStatus)
+                if (result.isFailure) {
+                    allPosts = allPosts.toMutableList().also { it[postIndex] = originalPost }
+                    applyFilters()
+                }
+            }
+        }
+    }
+
+    fun updatePostDetails(postId: String, description: String, price: Double, category: String, store: String) {
+        val postIndex = allPosts.indexOfFirst { it.id == postId }
+        if (postIndex != -1) {
+            val originalPost = allPosts[postIndex]
+            val updatedPost = originalPost.copy(
+                description = description,
+                price = price,
+                category = category,
+                store = store
+            )
+            allPosts = allPosts.toMutableList().also { it[postIndex] = updatedPost }
+            applyFilters()
+
+            viewModelScope.launch {
+                val result = postRepository.updatePostDetails(postId, description, price, category, store)
+                if (result.isFailure) {
+                    allPosts = allPosts.toMutableList().also { it[postIndex] = originalPost }
+                    applyFilters()
+                }
             }
         }
     }

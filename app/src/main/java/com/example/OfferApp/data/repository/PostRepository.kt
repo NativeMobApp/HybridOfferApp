@@ -204,4 +204,28 @@ class PostRepository {
             Result.failure(e)
         }
     }
+
+    suspend fun updatePostStatus(postId: String, newStatus: String): Result<Unit> {
+        return try {
+            postsCollection.document(postId).update("status", newStatus).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updatePostDetails(postId: String, description: String, price: Double, category: String, store: String): Result<Unit> {
+        return try {
+            val updates = mapOf(
+                "description" to description,
+                "price" to price,
+                "category" to category,
+                "store" to store
+            )
+            postsCollection.document(postId).update(updates).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

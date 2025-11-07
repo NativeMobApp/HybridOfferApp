@@ -1,6 +1,9 @@
 package com.example.OfferApp.view.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -27,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.OfferApp.domain.entities.Post
 import com.example.OfferApp.viewmodel.MainViewModel
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
@@ -36,9 +41,22 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
     val score = post.scores.sumOf { it.value }
     val scoreColor = when {
         score > 0 -> Color(0xFF4CAF50) // A nice green color
-        score < 0 -> MaterialTheme.colorScheme.error // Use the app''s error color for negative scores
+        score < 0 -> MaterialTheme.colorScheme.error // Use the app's error color for negative scores
         else -> Color.Gray
     }
+
+    val valuation = when {
+        score > 10 -> "Ofertón"
+        score > 5 -> "Buena oferta"
+        score >= -5 -> "Oferta"
+        score >= -10 -> "Mala oferta"
+        else -> "Estafa"
+    }
+
+    val postTime = post.timestamp?.time ?: 0L
+    val currentTime = System.currentTimeMillis()
+    val diffInMillis = currentTime - postTime
+    val isNew = diffInMillis < TimeUnit.HOURS.toMillis(24)
 
     Card(
         modifier = Modifier
@@ -69,6 +87,35 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                     maxLines = 2
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = post.status.uppercase(),
+                        color = if (post.status.equals("activa", ignoreCase = true)) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(text = valuation, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    if (isNew) {
+                        Box(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "NEW",
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 

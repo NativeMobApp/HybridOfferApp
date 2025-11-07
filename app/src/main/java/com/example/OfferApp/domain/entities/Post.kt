@@ -17,5 +17,7 @@ data class Post(
     var price: Double = 0.0, // Price field added
     var user: User? = null,
     var scores: List<Score> = emptyList(),
-    @ServerTimestamp val timestamp: Date? = null
+    @ServerTimestamp val timestamp: Date? = null,
+    var status: String = "activa",
+    var store: String = ""
 )

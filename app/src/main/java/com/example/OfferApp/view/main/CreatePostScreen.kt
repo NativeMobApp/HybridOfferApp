@@ -152,26 +152,26 @@ fun CreatePostScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "Descripción",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Descripción",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                             )
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                                )
-                            ) {
-                                Text(
-                                    text = description,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
+                        ) {
+                            Text(
+                                text = description,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(16.dp)
+                            )
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     ExposedDropdownMenuBox(
                         expanded = expandedPromotion,
@@ -242,16 +242,16 @@ fun CreatePostScreen(
                         colors = OutlinedTextFieldDefaults.colors()
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                   /* OutlinedTextField(
-                        value = location,
-                        onValueChange = { /*location = it*/ },
-                        readOnly=true,
-                        label = { Text("Ubicación") },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        colors = OutlinedTextFieldDefaults.colors()
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))*/
+                    /* OutlinedTextField(
+                         value = location,
+                         onValueChange = { /*location = it*/ },
+                         readOnly=true,
+                         label = { Text("Ubicación") },
+                         modifier = Modifier.fillMaxWidth(),
+                         enabled = !isLoading,
+                         colors = OutlinedTextFieldDefaults.colors()
+                     )
+                     Spacer(modifier = Modifier.height(16.dp))*/
                     OutlinedTextField(
                         value = price,
                         onValueChange = { price = it },
@@ -304,7 +304,8 @@ fun CreatePostScreen(
                             imageUri?.let { uri ->
                                 scope.launch {
                                     isLoading = true
-                                    val result = mainViewModel.addPost(description, uri, location, latitude, longitude, selectedCategory, price.toDoubleOrNull() ?: 0.0)
+                                    val finalStore = if (store.isNotBlank()) store else "desconocido"
+                                    val result = mainViewModel.addPost(description, uri, location, latitude, longitude, selectedCategory, price.toDoubleOrNull() ?: 0.0, finalStore)
                                     if (result.isSuccess) {
                                         onPostCreated()
                                     }

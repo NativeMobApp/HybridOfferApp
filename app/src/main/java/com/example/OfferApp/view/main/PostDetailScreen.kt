@@ -27,9 +27,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.*
@@ -62,6 +64,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun PostDetailScreen(
@@ -107,26 +110,35 @@ fun PostDetailContent(
     val comments by mainViewModel.comments.collectAsState()
     var newCommentText by remember { mutableStateOf("") }
     val currentUserIsAuthor = mainViewModel.user.uid == post.user?.uid
-    var showDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabTitles = listOf("Foto", "Mapa")
     val isMapTouched = remember { mutableStateOf(false) }
 
-    if (showDialog) {
+    if (showDeleteDialog) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { showDeleteDialog = false },
             title = { Text("Confirmar eliminación") },
             text = { Text("¿Estás seguro de que quieres eliminar este post? Esta acción no se puede deshacer.") },
             confirmButton = {
                 Button(onClick = {
                     mainViewModel.deletePost(post.id)
-                    showDialog = false
+                    showDeleteDialog = false
                     onBackClicked() // Go back after deleting
                 }) { Text("Eliminar") }
             },
             dismissButton = {
-                Button(onClick = { showDialog = false }) { Text("Cancelar") }
+                Button(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
             }
+        )
+    }
+
+    if (showEditDialog) {
+        EditPostDialog(
+            post = post,
+            mainViewModel = mainViewModel,
+            onDismiss = { showEditDialog = false }
         )
     }
 
@@ -173,7 +185,13 @@ fun PostDetailContent(
 
             // Content Section
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                PostInfoSection(mainViewModel, post, onProfileClick) { showDialog = true }
+                PostInfoSection(
+                    mainViewModel,
+                    post,
+                    onProfileClick,
+                    onDeleteClick = { showDeleteDialog = true },
+                    onEditClick = { showEditDialog = true }
+                )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -286,7 +304,8 @@ private fun PostInfoSection(
     mainViewModel: MainViewModel,
     post: Post,
     onProfileClick: (String) -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onEditClick: () -> Unit
 ) {
     val context = LocalContext.current
     val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
@@ -301,8 +320,20 @@ private fun PostInfoSection(
     val isFavorite = mainViewModel.user.favorites.contains(post.id)
     val favoriteColor = if (isFavorite) Color(0xFFFFC107) else Color.Gray
 
+    val valuation = when {
+        score > 10 -> "Ofertón"
+        score > 5 -> "Buena oferta"
+        score >= -5 -> "Oferta"
+        score >= -10 -> "Mala oferta"
+        else -> "Estafa"
+    }
+
+    val postTime = post.timestamp?.time ?: 0L
+    val currentTime = System.currentTimeMillis()
+    val diffInMillis = currentTime - postTime
+    val isNew = diffInMillis < TimeUnit.HOURS.toMillis(24)
+
     Column(modifier = Modifier.padding(16.dp)) {
-        // Author Info
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -338,12 +369,46 @@ private fun PostInfoSection(
 
         HorizontalDivider()
 
-        // Post Details
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = post.status.uppercase(),
+                color = if (post.status.equals("activa", ignoreCase = true)) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (isNew) {
+                Box(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "NEW",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Star, contentDescription = "Valuation", tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = valuation, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
         Row(
             modifier = Modifier.padding(top = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left Column (Description, Category, Location)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = post.description,
@@ -355,11 +420,14 @@ private fun PostInfoSection(
                 InfoRow(icon = Icons.Default.Category, text = post.category)
                 Spacer(modifier = Modifier.height(8.dp))
                 InfoRow(icon = Icons.Default.LocationOn, text = post.location)
+                if (post.store.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InfoRow(icon = Icons.Default.Store, text = post.store)
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Right Column (Price and Score)
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.SpaceBetween,
@@ -391,21 +459,20 @@ private fun PostInfoSection(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Vote Buttons
-            OutlinedButton(onClick = { mainViewModel.updatePostScore(post.id, 1) }, enabled = !currentUserIsAuthor) {
-                Icon(Icons.Default.ThumbUp, contentDescription = "Like", tint = if (userVote == 1) Color(0xFF4CAF50) else Color.Gray)
-            }
-            OutlinedButton(onClick = { mainViewModel.updatePostScore(post.id, -1) }, enabled = !currentUserIsAuthor) {
-                Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = if (userVote == -1) MaterialTheme.colorScheme.error else Color.Gray)
+            if (!currentUserIsAuthor) {
+                OutlinedButton(onClick = { mainViewModel.updatePostScore(post.id, 1) }) {
+                    Icon(Icons.Default.ThumbUp, contentDescription = "Like", tint = if (userVote == 1) Color(0xFF4CAF50) else Color.Gray)
+                }
+                OutlinedButton(onClick = { mainViewModel.updatePostScore(post.id, -1) }) {
+                    Icon(Icons.Default.ThumbDown, contentDescription = "Dislike", tint = if (userVote == -1) MaterialTheme.colorScheme.error else Color.Gray)
+                }
             }
 
-            // Favorite and Share
             OutlinedButton(onClick = { mainViewModel.toggleFavorite(post.id) }) {
                 Icon(Icons.Default.Star, contentDescription = "Favorite", tint = favoriteColor)
             }
@@ -422,8 +489,10 @@ private fun PostInfoSection(
                 Icon(Icons.Default.Share, contentDescription = "Compartir")
             }
 
-            // Delete Button
             if (currentUserIsAuthor) {
+                OutlinedButton(onClick = onEditClick) {
+                    Icon(Icons.Default.Edit, contentDescription = "Editar post")
+                }
                 OutlinedButton(onClick = onDeleteClick, colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                     Icon(Icons.Default.Delete, contentDescription = "Eliminar post")
                 }
@@ -529,4 +598,99 @@ private fun AddCommentSection(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditPostDialog(
+    post: Post,
+    mainViewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    var editedDescription by remember { mutableStateOf(post.description) }
+    var editedPrice by remember { mutableStateOf(post.price.toString()) }
+    var editedCategory by remember { mutableStateOf(post.category) }
+    var editedStore by remember { mutableStateOf(post.store) }
+    var editedStatus by remember { mutableStateOf(post.status) }
+    var categoryExpanded by remember { mutableStateOf(false) }
+
+    val categories = listOf(
+        "Alimentos", "Tecnología", "Moda", "Deportes", "Construcción",
+        "Animales", "Electrodomésticos", "Servicios", "Educación",
+        "Juguetes", "Vehículos", "Otros"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar Publicación") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = editedDescription,
+                    onValueChange = { editedDescription = it },
+                    label = { Text("Descripción") }
+                )
+                OutlinedTextField(
+                    value = editedPrice,
+                    onValueChange = { editedPrice = it },
+                    label = { Text("Precio") }
+                )
+                OutlinedTextField(
+                    value = editedStore,
+                    onValueChange = { editedStore = it },
+                    label = { Text("Tienda") }
+                )
+
+                ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = {categoryExpanded = !categoryExpanded}) {
+                    OutlinedTextField(
+                        value = editedCategory,
+                        onValueChange = {},
+                        label = { Text("Categoría") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        modifier = Modifier.menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        categories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category) },
+                                onClick = {
+                                    editedCategory = category
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Estado:")
+                    Spacer(Modifier.width(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = editedStatus == "activa", onClick = { editedStatus = "activa" })
+                        Text("Activa")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = editedStatus == "vencida", onClick = { editedStatus = "vencida" })
+                        Text("Vencida")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val price = editedPrice.toDoubleOrNull() ?: post.price
+                mainViewModel.updatePostDetails(post.id, editedDescription, price, editedCategory, editedStore)
+                mainViewModel.updatePostStatus(post.id, editedStatus)
+                onDismiss()
+            }) { Text("Guardar") }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
