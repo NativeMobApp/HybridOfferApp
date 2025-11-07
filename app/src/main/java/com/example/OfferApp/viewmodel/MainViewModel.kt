@@ -85,7 +85,7 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            postRepository.deleteExpiredPosts()
+            postRepository.expireOldPosts() // Change to expire instead of delete
         }
         refreshPosts() // Initial load
         viewModelScope.launch {
@@ -355,8 +355,9 @@ class MainViewModel(initialUser: User) : ViewModel() {
         if (postIndex == -1) return
 
         val originalPost = allPosts[postIndex]
-        val userId = user.uid
+        if (originalPost.status != "activa") return
 
+        val userId = user.uid
         val newScores = originalPost.scores.toMutableList()
         val existingScore = originalPost.scores.find { it.userId == userId }
 
@@ -369,21 +370,40 @@ class MainViewModel(initialUser: User) : ViewModel() {
             newScores.add(Score(userId, value))
         }
 
-        val updatedPost = originalPost.copy(scores = newScores)
+        val totalScore = newScores.sumOf { it.value }
+        val newStatus = if (totalScore < -15) "vencida" else originalPost.status
+
+        val updatedPost = originalPost.copy(scores = newScores, status = newStatus)
 
         allPosts = allPosts.toMutableList().also { it[postIndex] = updatedPost }
         applyFilters()
 
         viewModelScope.launch {
             try {
-                postRepository.updatePostScore(postId, user.uid, value)
+                postRepository.updatePostScore(postId, user.uid, value).getOrThrow() // Use getOrThrow to catch exceptions
+
+                // After the repository call, we should refresh the post from the source of truth
+                val refreshedPost = postRepository.getPostById(postId)
+                if (refreshedPost != null) {
+                    val finalPostIndex = allPosts.indexOfFirst { it.id == postId }
+                    if (finalPostIndex != -1) {
+                        allPosts = allPosts.toMutableList().also { it[finalPostIndex] = refreshedPost }
+                        applyFilters()
+                    }
+                } else {
+                    // Post might have been deleted, so remove it from the list
+                    allPosts = allPosts.filter { it.id != postId }
+                    applyFilters()
+                }
             } catch (e: Exception) {
+                // If the operation failed, roll back the UI changes
                 allPosts = allPosts.toMutableList().also { it[postIndex] = originalPost }
                 applyFilters()
                 Log.e("MainViewModel", "Failed to update post score, rolled back UI.", e)
             }
         }
     }
+
 
     fun onSearchQueryChange(newQuery: String) {
         searchQuery = newQuery

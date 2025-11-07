@@ -215,7 +215,8 @@ fun NavGraph(
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 },
-                onProfileClick = { navController.navigate(Screen.MyProfile.route) }
+                onProfileClick = { navController.navigate(Screen.MyProfile.route) },
+                onPostClicked = { postId -> navController.navigate(Screen.PostDetail.createRoute(postId)) }
             )
         }
     }

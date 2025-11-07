@@ -68,29 +68,32 @@ class PostRepository {
                 val post = transaction.get(postRef).toObject(Post::class.java)
                     ?: throw Exception("Post not found")
 
+                if (post.status != "activa") { // Do not allow voting on non-active posts
+                    throw Exception("Post is not active, cannot change score.")
+                }
+
                 val existingScoreIndex = post.scores.indexOfFirst { it.userId == userId }
                 val newScores = post.scores.toMutableList()
 
                 if (existingScoreIndex != -1) {
                     if (newScores[existingScoreIndex].value == value) {
-                        newScores.removeAt(existingScoreIndex)
+                        newScores.removeAt(existingScoreIndex) // User removes their vote
                     } else {
+                        // User changes their vote
                         newScores[existingScoreIndex] = newScores[existingScoreIndex].copy(value = value)
                     }
                 } else {
-                    newScores.add(Score(userId, value))
+                    newScores.add(Score(userId, value)) // New vote
                 }
                 transaction.update(postRef, "scores", newScores)
-            }.await()
 
-            val updatedPost = postsCollection.document(postId).get().await().toObject(Post::class.java)
-            if (updatedPost != null) {
-                val totalScore = updatedPost.scores.sumOf { it.value }
+                val totalScore = newScores.sumOf { it.value }
                 if (totalScore < -15) {
-                    deletePost(postId)
+                    transaction.update(postRef, "status", "vencida")
                 }
-            }
 
+                null
+            }.await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -169,6 +172,14 @@ class PostRepository {
         return Pair(posts, newLastVisible)
     }
 
+    suspend fun getPostById(postId: String): Post? {
+        return try {
+            postsCollection.document(postId).get().await().toObject(Post::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun deletePost(postId: String): Result<Unit> {
         return try {
             // First, delete all comments in the subcollection
@@ -185,19 +196,23 @@ class PostRepository {
         }
     }
 
-    suspend fun deleteExpiredPosts(): Result<Unit> {
+    suspend fun expireOldPosts(): Result<Unit> {
         return try {
             val thirtyDaysInMillis = 30 * 24 * 60 * 60 * 1000L
             val cutoffDate = Date(System.currentTimeMillis() - thirtyDaysInMillis)
 
             val querySnapshot = postsCollection
                 .whereLessThan("timestamp", cutoffDate)
+                .whereEqualTo("status", "activa")
                 .get()
                 .await()
 
+            val batch = firestore.batch()
             for (document in querySnapshot.documents) {
-                deletePost(document.id)
+                val postRef = postsCollection.document(document.id)
+                batch.update(postRef, "status", "vencida")
             }
+            batch.commit().await()
 
             Result.success(Unit)
         } catch (e: Exception) {
