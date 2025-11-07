@@ -147,18 +147,18 @@ fun PostItem(mainViewModel: MainViewModel, post: Post, onClick: () -> Unit) {
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
+                                text = "$${String.format("%.2f", post.discountPrice)}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
                                 text = "$${String.format("%.2f", post.price)}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Normal,
                                 color = Color.Gray,
                                 textDecoration = TextDecoration.LineThrough
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "$${String.format("%.2f", post.discountPrice)}",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }

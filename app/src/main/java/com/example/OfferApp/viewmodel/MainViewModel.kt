@@ -440,7 +440,14 @@ class MainViewModel(initialUser: User) : ViewModel() {
 
     fun deletePost(postId: String) {
         viewModelScope.launch {
-            postRepository.deletePost(postId)
+            try {
+                postRepository.deletePost(postId)
+                // On successful deletion, update the local state to refresh the UI
+                allPosts = allPosts.filterNot { it.id == postId }
+                applyFilters()
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error deleting post $postId", e)
+            }
         }
     }
 

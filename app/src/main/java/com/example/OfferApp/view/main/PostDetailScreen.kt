@@ -422,18 +422,18 @@ private fun PostInfoSection(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
+                    text = "$${String.format("%.2f", post.discountPrice)}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
                     text = "$${String.format("%.2f", post.price)}",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     textDecoration = TextDecoration.LineThrough
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "$${String.format("%.2f", post.discountPrice)}",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
