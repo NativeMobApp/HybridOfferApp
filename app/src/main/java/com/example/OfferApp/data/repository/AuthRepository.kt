@@ -15,10 +15,12 @@ import kotlinx.coroutines.tasks.await
 import kotlin.Result
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.example.OfferApp.data.firebase.FirebaseAuthService
 
 class AuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val authService: FirebaseAuthService = FirebaseAuthService()
 ) {
 
     private val usersCollection = firestore.collection("users")
@@ -175,7 +177,10 @@ class AuthRepository(
             Result.failure(e)
         }
     }
-
+    suspend fun updateFCMToken(userId: String, token: String): Result<Unit> {
+        // Redirige la llamada al servicio
+        return authService.updateFCMToken(userId, token)
+    }
     suspend fun removeFavorite(userId: String, postId: String): Result<Unit> {
         return try {
             usersCollection.document(userId).update("favorites", FieldValue.arrayRemove(postId)).await()

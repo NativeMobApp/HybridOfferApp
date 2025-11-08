@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 sealed class AuthState {
     object Idle : AuthState()
@@ -48,6 +51,7 @@ class AuthViewModel(
                 val user = repository.getUser(firebaseUser!!.uid)
                 if (user != null) {
                     sessionManager.saveSessionState(true)
+                     saveFCMToken()
                     _state.value = AuthState.Success(user)
                 } else {
                     _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
@@ -65,6 +69,7 @@ class AuthViewModel(
                 val user = repository.getUser(firebaseUser!!.uid)
                 if (user != null) {
                     sessionManager.saveSessionState(true)
+                    saveFCMToken()
                     _state.value = AuthState.Success(user)
                 } else {
                     _state.value = AuthState.Error("No se pudo cargar el perfil del usuario.")
@@ -100,4 +105,20 @@ class AuthViewModel(
     fun setUiError(message: String) {
         _state.value = AuthState.Error(message)
     }
+    private suspend fun saveFCMToken() {
+        // 1. Obtener el token FCM
+        val token = try {
+            FirebaseMessaging.getInstance().token.await()
+        } catch (e: Exception) {
+            Log.e("AuthViewModel", "Fallo al obtener el token FCM", e)
+            return
+        }
+
+        // 2. Obtener el ID del usuario actual
+        val userId = repository.currentUser?.uid ?: return
+
+        // 3. Llamar al repositorio para guardar el token
+        repository.updateFCMToken(userId, token)
+    }
+
 }

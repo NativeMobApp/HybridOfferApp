@@ -44,6 +44,24 @@ class FirebaseAuthService(
         }
     }
 
+
+    fun currentUser() = auth.currentUser
+
+    suspend fun updateFCMToken(userId: String, token: String): Result<Unit> {
+        return try {
+            val tokenData = mapOf("fcmToken" to token)
+
+            // Actualiza el documento del usuario con el nuevo token
+            firestore.collection("users").document(userId)
+                .update(tokenData)
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Error al guardar el token FCM."))
+        }
+    }
+
     suspend fun isUsernameTaken(username: String): Boolean {
         val snapshot = firestore.collection("users")
             .whereEqualTo("username", username)
@@ -58,5 +76,5 @@ class FirebaseAuthService(
 
     }
 
-    fun currentUser() = auth.currentUser
+
 }
