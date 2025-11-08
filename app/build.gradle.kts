@@ -53,6 +53,8 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1") // Added for .await()
 
+    //Firebase messaging
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
     // Cloudinary
     implementation("com.cloudinary:cloudinary-android:2.4.0")
 
