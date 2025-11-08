@@ -24,6 +24,10 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.launch
 
 class MainViewModel(initialUser: User) : ViewModel() {
+    private var currentSortOption: String = "Fecha (más recientes)"
+    private var currentStatusFilter: String = "Todas"
+    private var currentCategoryFilter: String = "Todos"
+
     private val postRepository = PostRepository()
     private val authRepository = AuthRepository()
 
@@ -416,23 +420,33 @@ class MainViewModel(initialUser: User) : ViewModel() {
     }
 
     private fun applyFilters() {
-        val basePosts = if (selectedFeedTab == 1) {
-            // "Following" tab: Filter client-side
+        // 1️⃣ Filtramos por feed ("Todos" o "Siguiendo")
+        var filteredPosts = if (selectedFeedTab == 1) {
             allPosts.filter { post -> user.following.contains(post.user?.uid) }
         } else {
-            // "All" tab: Use the list as is (already filtered by category on server)
             allPosts
         }
 
-        posts = if (searchQuery.isBlank()) {
-            basePosts
-        } else {
-            basePosts.filter {
+        // 2️⃣ Aplicamos búsqueda local
+        if (searchQuery.isNotBlank()) {
+            filteredPosts = filteredPosts.filter {
                 it.description.contains(searchQuery, ignoreCase = true) ||
                         it.location.contains(searchQuery, ignoreCase = true)
             }
         }
+
+        // 3️⃣ Aplicamos ordenamientos locales
+        filteredPosts = when (currentSortOption) {
+            "Puntaje (mayor a menor)" -> filteredPosts.sortedByDescending { it.scores.sumOf { s -> s.value } }
+            "Puntaje (menor a mayor)" -> filteredPosts.sortedBy { it.scores.sumOf { s -> s.value } }
+            "Precio (mayor a menor)" -> filteredPosts.sortedByDescending { it.price }
+            "Precio (menor a mayor)" -> filteredPosts.sortedBy { it.price }
+            else -> filteredPosts.sortedByDescending { it.timestamp }
+        }
+
+        posts = filteredPosts
     }
+
 
     fun getPostById(id: String): Post? {
         return allPosts.find { it.id == id }
@@ -491,5 +505,30 @@ class MainViewModel(initialUser: User) : ViewModel() {
                 }
             }
         }
+    }
+    fun setSortOption(option: String) {
+        currentSortOption = option
+        viewModelScope.launch { applyFiltersAndSort() }
+    }
+
+    fun setStatusFilter(option: String) {
+        currentStatusFilter = option
+        viewModelScope.launch { applyFiltersAndSort() }
+    }
+
+    fun setCategoryFilter(category: String) {
+        currentCategoryFilter = category
+        viewModelScope.launch { applyFiltersAndSort() }
+    }
+
+    suspend fun applyFiltersAndSort() {
+        isLoading = true
+        val result = postRepository.getFilteredPosts(
+            status = currentStatusFilter,
+            category = currentCategoryFilter,
+            sortOption = currentSortOption
+        )
+        posts = result
+        isLoading = false
     }
 }

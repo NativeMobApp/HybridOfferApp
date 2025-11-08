@@ -182,6 +182,31 @@ fun MainScreen(
             }
         ) { paddingValues ->
             Column(modifier = Modifier.padding(paddingValues)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DropdownMenuFilter(
+                        label = "Ordenar por",
+                        options = listOf(
+                            "Fecha (más recientes)",
+                            "Puntaje (mayor a menor)",
+                            "Puntaje (menor a mayor)",
+                            "Precio (mayor a menor)",
+                            "Precio (menor a mayor)"
+                        ),
+                        onOptionSelected = mainViewModel::setSortOption
+                    )
+/*
+                    DropdownMenuFilter(
+                        label = "Estado",
+                        options = listOf("Todas", "activa", "baja"),
+                        onOptionSelected = mainViewModel::setStatusFilter
+                    )*/
+                }
                 val tabTitles = listOf("Todos", "Siguiendo")
                 TabRow(selectedTabIndex = mainViewModel.selectedFeedTab) {
                     tabTitles.forEachIndexed { index, title ->

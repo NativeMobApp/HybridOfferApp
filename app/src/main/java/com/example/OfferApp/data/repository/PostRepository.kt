@@ -244,4 +244,34 @@ class PostRepository {
             Result.failure(e)
         }
     }
+    // 🔹 Nuevo método para aplicar filtros y ordenamientos
+    suspend fun getFilteredPosts(
+        status: String = "Todas",
+        category: String = "Todos",
+        sortOption: String = "Fecha (más recientes)"
+    ): List<Post> {
+        var query: Query = postsCollection
+
+        if (status != "Todas") query = query.whereEqualTo("status", status.lowercase())
+        if (category != "Todos") query = query.whereEqualTo("category", category)
+
+        // 🔸 Firestore sólo permite ordenar por campos simples
+        query = when (sortOption) {
+            "Precio (menor a mayor)" -> query.orderBy("price", Query.Direction.ASCENDING)
+            "Precio (mayor a menor)" -> query.orderBy("price", Query.Direction.DESCENDING)
+            "Fecha (más recientes)" -> query.orderBy("timestamp", Query.Direction.DESCENDING)
+            else -> query.orderBy("timestamp", Query.Direction.DESCENDING)
+        }
+
+        val snapshot = query.get().await()
+        var posts = snapshot.toObjects(Post::class.java)
+
+        // 🔸 Ordenar por puntaje si fue seleccionado (client-side)
+        if (sortOption == "Puntaje") {
+            posts = posts.sortedByDescending { it.scores.sumOf { score -> score.value } }
+        }
+
+        return posts
+    }
+
 }

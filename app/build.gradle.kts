@@ -87,6 +87,7 @@ dependencies {
     // Other
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("com.google.android.gms:play-services-location:21.2.0")
+    implementation(libs.androidx.material3)
 
     // Testing
     testImplementation(libs.junit)
