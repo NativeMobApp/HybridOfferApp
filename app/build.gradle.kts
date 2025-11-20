@@ -4,6 +4,11 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
 }
+// 🔥 Debe estar ANTES del bloque dependencies
+configurations {
+    maybeCreate("profileImplementation")
+    getByName("profileImplementation").extendsFrom(getByName("debugImplementation"))
+}
 
 android {
     namespace = "com.example.OfferApp"
@@ -15,11 +20,16 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {}
+
+        create("profile") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -28,16 +38,15 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-    buildFeatures {
-        compose = true
-    }
+    kotlinOptions { jvmTarget = "11" }
+
+    buildFeatures { compose = true }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"
     }
@@ -51,14 +60,15 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1") // Added for .await()
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
-    //Firebase messaging
+    // Messaging
     implementation("com.google.firebase:firebase-messaging:25.0.1")
+
     // Cloudinary
     implementation("com.cloudinary:cloudinary-android:2.4.0")
 
-    // AndroidX & UI
+    // AndroidX & Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -73,8 +83,7 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-
-    //openstreetmap
+    // openstreetmap
     implementation("org.osmdroid:osmdroid-android:6.1.18")
 
     // CameraX
@@ -88,6 +97,12 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("com.google.android.gms:play-services-location:21.2.0")
     implementation(libs.androidx.material3)
+
+    // 🔥 ESTE ES EL CORRECTO — sin nested dependencies
+    add("debugImplementation", "com.example.flutter_module_hybrid:flutter_debug:1.0")
+    add("profileImplementation", "com.example.flutter_module_hybrid:flutter_profile:1.0")
+    add("releaseImplementation", "com.example.flutter_module_hybrid:flutter_release:1.0")
+
 
     // Testing
     testImplementation(libs.junit)

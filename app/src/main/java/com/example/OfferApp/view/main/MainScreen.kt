@@ -52,6 +52,11 @@ import com.example.OfferApp.view.header.Header
 import com.example.OfferApp.viewmodel.MainViewModel
 import com.example.OfferApp.viewmodel.ThemeViewModel
 import kotlinx.coroutines.launch
+import android.content.Intent
+import io.flutter.embedding.android.FlutterActivity
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 
 @Composable
 fun MainScreen(
@@ -70,10 +75,8 @@ fun MainScreen(
         "Animales", "Electrodomésticos", "Servicios", "Educación",
         "Juguetes", "Vehículos", "Otros"
     )
-
     // Get theme state from ThemeViewModel
     val isDarkMode by themeViewModel.isDarkMode.collectAsState()
-
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -231,13 +234,20 @@ fun MainScreen(
 @Composable
 fun PortraitLayout(mainViewModel: MainViewModel, onPostClick: (String) -> Unit) {
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = listState
     ) {
         items(mainViewModel.posts) { post ->
-            PostItem(mainViewModel = mainViewModel, post = post, onClick = { onPostClick(post.id) })
+            PostItem(
+                mainViewModel = mainViewModel,
+                post = post,
+                onClick = { onPostClick(post.id) }
+            )
         }
+
         if (mainViewModel.isLoading) {
             item {
                 Row(
@@ -253,6 +263,22 @@ fun PortraitLayout(mainViewModel: MainViewModel, onPostClick: (String) -> Unit) 
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
+            }
+        }
+
+        // 🔥 Botón extra al final de la lista
+        item {
+            Button(
+                onClick = {
+                    context.startActivity(
+                        FlutterActivity.createDefaultIntent(context)
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text("Abrir Hola Mundo Flutter")
             }
         }
     }
