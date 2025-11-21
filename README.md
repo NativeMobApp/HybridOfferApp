@@ -6,6 +6,7 @@ Aclaraciones antes de instalar flutter:
 3. Clonar el repo HybridOfferApp en una carpeta local (ya viene el todo el código nativo integrado con el flutter)
 
 Para desarrollar en Flutter:
+
   a. Abrir VS Code en la carpeta `flutter_module_hybrid` del nuevo repo (abrir cmd en esa carpeta y poner el comando: code)
     
   b. Ejecutar: en el mismo cmd poner el comando: flutter pub get y no cerrar.
